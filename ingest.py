@@ -41,7 +41,7 @@ def _print_sample(records: list[dict], label: str) -> None:
     print()
 
 
-def _run_source(label: str, fetch_fn, save_fn, conn) -> None:
+def _run_source(label: str, fetch_fn, save_fn) -> None:
     try:
         logger.info("%s: starting fetch", label)
         t0 = time.time()
@@ -49,7 +49,7 @@ def _run_source(label: str, fetch_fn, save_fn, conn) -> None:
         elapsed = time.time() - t0
         logger.info("%s: fetched %d records in %.2fs", label, len(records), elapsed)
 
-        count = save_fn(records, conn)
+        count = save_fn(records)
         logger.info("%s: saved %d rows to database", label, count)
         _print_sample(records, label)
     except Exception as exc:
@@ -69,21 +69,18 @@ def main() -> None:
         "FIRMS real-time",
         lambda: firms.fetch(firms_key),
         lambda records: firms.save(records, conn),
-        conn,
     )
 
     _run_source(
         "NOAA weather",
         lambda: noaa.fetch(),
         lambda records: noaa.save(records, conn),
-        conn,
     )
 
     _run_source(
-        "FIRMS historical",
-        lambda: historical.fetch(firms_key),
+        "Kaggle historical",
+        lambda: historical.fetch(),
         lambda records: historical.save(records, conn),
-        conn,
     )
 
     conn.close()

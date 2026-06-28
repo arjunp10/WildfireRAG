@@ -1,54 +1,66 @@
-import csv
-import io
 import logging
-import math
-import sqlite3
+import sqlite3 as _sqlite3
 from datetime import datetime, timedelta, timezone
-
-import requests
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-_BASE_URL = "https://firms.modaps.eosdis.nasa.gov/api/area/csv"
-_CHUNK_DAYS = 10
+_DEFAULT_PATH = Path(__file__).parent / "wildfires.sqlite"
+_QUERY = """
+    SELECT
+        LATITUDE,
+        LONGITUDE,
+        FIRE_SIZE,
+        FIRE_YEAR,
+        DISCOVERY_DOY,
+        STAT_CAUSE_DESCR
+    FROM Fires
+    WHERE LATITUDE IS NOT NULL
+      AND LONGITUDE IS NOT NULL
+"""
 
 
-def fetch(
-    map_key: str,
-    area: str = "-130,24,-65,50",
-    date_range_days: int = 365,
-) -> list[dict]:
-    end_date = datetime.now(timezone.utc).date()
-    start_date = end_date - timedelta(days=date_range_days)
+def _doy_to_date(year: int, doy: int) -> str:
+    dt = datetime(int(year), 1, 1) + timedelta(days=int(doy) - 1)
+    return dt.strftime("%Y-%m-%d")
 
-    num_chunks = math.ceil(date_range_days / _CHUNK_DAYS)
-    all_records: list[dict] = []
 
-    for i in range(num_chunks):
-        chunk_start = start_date + timedelta(days=i * _CHUNK_DAYS)
-        url = f"{_BASE_URL}/{map_key}/VIIRS_SNPP_SP/{area}/{_CHUNK_DAYS}/{chunk_start}"
-        logger.info("FIRMS historical: fetching chunk %d/%d (%s)", i + 1, num_chunks, chunk_start)
+def fetch(file_path: str | Path | None = None) -> list[dict]:
+    path = Path(file_path) if file_path else _DEFAULT_PATH
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Kaggle wildfire dataset not found at {path}. "
+            "Download it from https://www.kaggle.com/datasets/rtatman/188-million-us-wildfires "
+            "and save as data/wildfires.sqlite"
+        )
 
-        resp = requests.get(url, timeout=60)
-        resp.raise_for_status()
+    logger.info("Historical: reading from %s", path)
+    src = _sqlite3.connect(path)
+    src.row_factory = _sqlite3.Row
+    rows = src.execute(_QUERY).fetchall()
+    src.close()
+    logger.info("Historical: loaded %d raw records", len(rows))
 
-        reader = csv.DictReader(io.StringIO(resp.text))
-        for row in reader:
-            all_records.append({
-                "latitude": float(row["latitude"]),
-                "longitude": float(row["longitude"]),
-                "brightness": float(row["bright_ti4"]),
-                "frp": float(row["frp"]) if row["frp"] else 0.0,
-                "acq_date": row["acq_date"],
-                "acq_time": row["acq_time"],
-                "confidence": row["confidence"],
-                "satellite": row["satellite"],
+    records = []
+    for row in rows:
+        try:
+            records.append({
+                "latitude": float(row["LATITUDE"]),
+                "longitude": float(row["LONGITUDE"]),
+                "brightness": 0.0,
+                "frp": float(row["FIRE_SIZE"]) if row["FIRE_SIZE"] else 0.0,
+                "acq_date": _doy_to_date(row["FIRE_YEAR"], row["DISCOVERY_DOY"]),
+                "acq_time": "0000",
+                "confidence": "high",
+                "satellite": row["STAT_CAUSE_DESCR"] or "Unknown",
             })
+        except Exception as exc:
+            logger.warning("Historical: skipping malformed row — %s", exc)
 
-    return all_records
+    return records
 
 
-def save(records: list[dict], conn: sqlite3.Connection) -> int:
+def save(records: list[dict], conn: _sqlite3.Connection) -> int:
     ingested_at = datetime.now(timezone.utc).isoformat()
     conn.executemany(
         """

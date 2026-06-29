@@ -9,3 +9,5 @@ dist/
 data/*.sqlite
 data/*.csv
 .claude/
+models/*.pkl
+models/*.joblib

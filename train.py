@@ -1,5 +1,4 @@
 import logging
-import sys
 from tabulate import tabulate
 from model.features import build_features
 from model.train import train_and_save
@@ -18,7 +17,7 @@ MODELS_DIR = "models"
 
 def main() -> None:
     logger.info("Phase 2: building features from %s", DB_PATH)
-    X_train, y_train, X_test, y_test, feature_names = build_features(db_path=DB_PATH)
+    X_train, y_train, X_test, y_test, _ = build_features(db_path=DB_PATH)
     logger.info(
         "Feature matrix: train=%s  test=%s", X_train.shape, X_test.shape
     )

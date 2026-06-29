@@ -64,9 +64,9 @@ export default function GlobeMap({ mapboxToken }) {
                 '#94a3b8',
                 [
                   'interpolate', ['linear'], ['get', 'fire_probability'],
-                  0,   '#22c55e',
-                  0.5, '#eab308',
-                  1,   '#ef4444',
+                  0,    '#22c55e',
+                  0.065,'#eab308',
+                  0.13, '#ef4444',
                 ],
               ],
               'circle-opacity': 0.85,

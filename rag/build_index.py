@@ -2,6 +2,7 @@ import argparse
 import sqlite3
 
 import chromadb
+import reverse_geocoder as rg
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
 from rag.config import COLLECTION_NAME, EMBED_MODEL
@@ -40,11 +41,18 @@ def build_index(db_path: str = "firerag.db", chroma_dir: str = "rag/chroma_db") 
     """).fetchall()
     conn.close()
 
+    coords = [(float(r[0]), float(r[1])) for r in rows]
+    geo = rg.search(coords, mode=1, verbose=False)
+
     docs, ids = [], []
-    for i, (cell_lat, cell_lon, month, fire_count, avg_b, avg_frp, min_yr, max_yr) in enumerate(rows):
+    for i, (row, loc) in enumerate(zip(rows, geo)):
+        cell_lat, cell_lon, month, fire_count, avg_b, avg_frp, min_yr, max_yr = row
         month_name = _MONTHS[int(month) - 1]
+        state = loc.get("admin1", "")
+        country = loc.get("cc", "")
+        location_label = f", {state}" if state and country == "US" else (f", {country}" if country else "")
         doc = (
-            f"Grid cell (lat={cell_lat}, lon={cell_lon}), "
+            f"Grid cell (lat={cell_lat}, lon={cell_lon}){location_label}, "
             f"Month={month_name} (month {int(month)}): {fire_count} fires ({min_yr}-{max_yr}). "
             f"Avg brightness: {avg_b:.1f}. Avg FRP: {avg_frp:.1f} MW."
         )

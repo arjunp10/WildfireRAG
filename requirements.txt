@@ -6,6 +6,7 @@ pandas==2.2.2
 numpy==2.5.0
 scikit-learn==1.9.0
 joblib==1.4.2
+reverse_geocoder==1.5.1
 fastapi==0.115.0
 uvicorn==0.30.6
 anthropic==0.40.0

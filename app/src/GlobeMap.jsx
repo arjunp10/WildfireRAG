@@ -21,7 +21,11 @@ export default function GlobeMap({ mapboxToken }) {
     map.addControl(new mapboxgl.NavigationControl(), 'top-right')
     map.addControl(new mapboxgl.FullscreenControl(), 'top-right')
 
+    let cancelled = false
+    let activePopup = null
+
     map.on('load', () => {
+      if (cancelled) return
       map.addSource('mapbox-dem', {
         type: 'raster-dem',
         url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
@@ -72,11 +76,12 @@ export default function GlobeMap({ mapboxToken }) {
           })
 
           map.on('click', 'fires-layer', e => {
+            activePopup?.remove()
             const p = e.features[0].properties
             const risk = p.fire_probability != null
               ? `${(Number(p.fire_probability) * 100).toFixed(1)}%`
               : 'Unknown'
-            new mapboxgl.Popup()
+            activePopup = new mapboxgl.Popup()
               .setLngLat(e.lngLat)
               .setHTML(`
                 <div style="font-family:system-ui;font-size:13px;line-height:1.6">
@@ -102,7 +107,10 @@ export default function GlobeMap({ mapboxToken }) {
         .catch(err => console.error('Failed to load fires.json:', err))
     })
 
-    return () => map.remove()
+    return () => {
+      cancelled = true
+      map.remove()
+    }
   }, [mapboxToken])
 
   return <div ref={containerRef} style={{ width: '100vw', height: '100vh' }} />

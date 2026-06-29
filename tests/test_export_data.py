@@ -111,3 +111,39 @@ def test_fire_fields_present(tmp_path):
     for field in ["id", "latitude", "longitude", "brightness", "acq_date",
                   "acq_time", "confidence", "satellite", "fire_probability"]:
         assert field in fire, f"Missing field: {field}"
+
+
+def test_export_fires_no_duplicate_when_predictions_share_cell(tmp_path):
+    db = str(tmp_path / "test.db")
+    out = str(tmp_path / "fires.json")
+    conn = sqlite3.connect(db)
+    conn.execute("""
+        CREATE TABLE fires_realtime (
+            id INTEGER PRIMARY KEY, latitude REAL, longitude REAL,
+            brightness REAL, acq_date TEXT, acq_time TEXT,
+            confidence TEXT, satellite TEXT, ingested_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE fires_predictions (
+            id INTEGER PRIMARY KEY, latitude REAL, longitude REAL,
+            fire_probability REAL, prediction_date TEXT,
+            model_version TEXT, ingested_at TEXT
+        )
+    """)
+    # One fire
+    conn.execute("""
+        INSERT INTO fires_realtime
+            (latitude, longitude, brightness, acq_date, acq_time, confidence, satellite, ingested_at)
+        VALUES (37.0, -120.0, 310.5, '2026-06-29', '0145', 'nominal', 'N', '2026-06-29')
+    """)
+    # Two predictions that bin to the same 0.5° cell
+    conn.executemany("""
+        INSERT INTO fires_predictions
+            (latitude, longitude, fire_probability, prediction_date, model_version, ingested_at)
+        VALUES (?, ?, ?, '2026-06-29', 'ensemble-v1', '2026-06-29')
+    """, [(37.0, -120.0, 0.72), (37.1, -120.1, 0.80)])
+    conn.commit()
+    conn.close()
+    count = export_fires(db_path=db, out_path=out)
+    assert count == 1  # must not fan-out to 2

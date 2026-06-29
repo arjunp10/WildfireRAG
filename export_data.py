@@ -17,6 +17,15 @@ def export_fires(db_path: str = "firerag.db", out_path: str = "app/public/fires.
     if latest:
         pred_date = latest["prediction_date"]
         rows = conn.execute("""
+            WITH deduped AS (
+                SELECT
+                    round(latitude  * 2) / 2 AS bin_lat,
+                    round(longitude * 2) / 2 AS bin_lon,
+                    MAX(fire_probability)     AS fire_probability
+                FROM fires_predictions
+                WHERE prediction_date = ?
+                GROUP BY bin_lat, bin_lon
+            )
             SELECT
                 f.id,
                 f.latitude,
@@ -26,12 +35,11 @@ def export_fires(db_path: str = "firerag.db", out_path: str = "app/public/fires.
                 f.acq_time,
                 f.confidence,
                 f.satellite,
-                p.fire_probability
+                d.fire_probability
             FROM fires_realtime f
-            LEFT JOIN fires_predictions p
-                ON round(f.latitude  * 2) / 2 = round(p.latitude  * 2) / 2
-               AND round(f.longitude * 2) / 2 = round(p.longitude * 2) / 2
-               AND p.prediction_date = ?
+            LEFT JOIN deduped d
+                ON round(f.latitude  * 2) / 2 = d.bin_lat
+               AND round(f.longitude * 2) / 2 = d.bin_lon
         """, (pred_date,)).fetchall()
     else:
         rows = conn.execute("""

@@ -11,3 +11,7 @@ data/*.csv
 .claude/
 models/*.pkl
 models/*.joblib
+app/public/fires.json
+app/.env
+app/node_modules/
+app/dist/

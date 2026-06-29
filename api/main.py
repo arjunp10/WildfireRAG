@@ -79,5 +79,5 @@ def chat(req: ChatRequest):
             messages=messages,
         )
         return ChatResponse(answer=response.content[0].text)
-    except Exception as e:
+    except anthropic.APIError as e:
         raise HTTPException(status_code=500, detail=f"Claude API error: {e}")

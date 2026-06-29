@@ -11,4 +11,3 @@ uvicorn==0.30.6
 anthropic==0.40.0
 chromadb==0.5.23
 sentence-transformers==3.3.1
-langchain-community==0.3.8

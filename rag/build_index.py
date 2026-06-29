@@ -4,25 +4,25 @@ import sqlite3
 import chromadb
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
+from rag.config import COLLECTION_NAME, EMBED_MODEL
+
 _MONTHS = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
 ]
 
-_EMBED_MODEL = "all-MiniLM-L6-v2"
-_COLLECTION = "wildfire-regions"
 _BATCH_SIZE = 100
 
 
 def build_index(db_path: str = "firerag.db", chroma_dir: str = "rag/chroma_db") -> int:
-    ef = SentenceTransformerEmbeddingFunction(model_name=_EMBED_MODEL)
+    ef = SentenceTransformerEmbeddingFunction(model_name=EMBED_MODEL)
     client = chromadb.PersistentClient(path=chroma_dir)
 
     try:
-        client.delete_collection(_COLLECTION)
+        client.delete_collection(COLLECTION_NAME)
     except Exception:
         pass
-    collection = client.create_collection(_COLLECTION, embedding_function=ef)
+    collection = client.create_collection(COLLECTION_NAME, embedding_function=ef)
 
     conn = sqlite3.connect(db_path)
     rows = conn.execute("""

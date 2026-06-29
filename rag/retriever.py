@@ -1,13 +1,19 @@
 import chromadb
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
-_EMBED_MODEL = "all-MiniLM-L6-v2"
-_COLLECTION = "wildfire-regions"
+from rag.config import COLLECTION_NAME, EMBED_MODEL
+
+_ef = SentenceTransformerEmbeddingFunction(model_name=EMBED_MODEL)
+_clients: dict[str, chromadb.PersistentClient] = {}
+
+
+def _get_collection(chroma_dir: str):
+    if chroma_dir not in _clients:
+        _clients[chroma_dir] = chromadb.PersistentClient(path=chroma_dir)
+    return _clients[chroma_dir].get_collection(COLLECTION_NAME, embedding_function=_ef)
 
 
 def query_similar(question: str, chroma_dir: str, k: int = 5) -> list[str]:
-    ef = SentenceTransformerEmbeddingFunction(model_name=_EMBED_MODEL)
-    client = chromadb.PersistentClient(path=chroma_dir)
-    collection = client.get_collection(_COLLECTION, embedding_function=ef)
+    collection = _get_collection(chroma_dir)
     results = collection.query(query_texts=[question], n_results=k)
     return results["documents"][0]

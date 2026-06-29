@@ -4,7 +4,7 @@ import anthropic
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from rag.retriever import query_similar
 
@@ -39,7 +39,7 @@ class Message(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    question: str
+    question: str = Field(..., min_length=1)
     history: list[Message] = []
 
 
@@ -67,8 +67,11 @@ def chat(req: ChatRequest):
     system_prompt = _SYSTEM_PROMPT.format(context=context)
 
     history = req.history[-6:]
-    messages = [{"role": m.role, "content": m.content} for m in history]
-    messages.append({"role": "user", "content": req.question})
+    msgs = [{"role": m.role, "content": m.content} for m in history]
+    # Drop leading assistant turns — Claude requires first message to be "user"
+    while msgs and msgs[0]["role"] != "user":
+        msgs.pop(0)
+    msgs.append({"role": "user", "content": req.question})
 
     try:
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -76,7 +79,7 @@ def chat(req: ChatRequest):
             model="claude-haiku-4-5-20251001",
             max_tokens=512,
             system=system_prompt,
-            messages=messages,
+            messages=msgs,
         )
         return ChatResponse(answer=response.content[0].text)
     except anthropic.APIError as e:

@@ -43,3 +43,22 @@ def test_chat_returns_answer():
         assert resp.status_code == 200
         assert "answer" in resp.json()
         assert len(resp.json()["answer"]) > 0
+
+
+def test_chat_strips_leading_assistant_history():
+    mock_response = MagicMock()
+    mock_response.content = [MagicMock(text="Answer here.")]
+
+    with patch("rag.retriever.query_similar", return_value=["doc1"]), \
+         patch("anthropic.Anthropic") as mock_anthropic:
+        mock_anthropic.return_value.messages.create.return_value = mock_response
+        client = _get_client()
+        resp = client.post("/chat", json={
+            "question": "What causes fires?",
+            "history": [{"role": "assistant", "content": "Welcome message here"}]
+        })
+        assert resp.status_code == 200
+        # Verify Claude was called with no leading assistant turn
+        call_args = mock_anthropic.return_value.messages.create.call_args
+        called_messages = call_args[1]["messages"]
+        assert called_messages[0]["role"] == "user"

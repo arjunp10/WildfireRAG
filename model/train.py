@@ -18,7 +18,7 @@ def train_and_save(
     y_test: np.ndarray,
     models_dir: str = "models",
 ) -> dict[str, dict[str, float]]:
-    Path(models_dir).mkdir(exist_ok=True)
+    Path(models_dir).mkdir(exist_ok=True, parents=True)
 
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)

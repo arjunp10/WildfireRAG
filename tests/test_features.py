@@ -1,6 +1,5 @@
 import sqlite3
 import numpy as np
-import pytest
 from model.features import build_features, FEATURE_NAMES
 
 

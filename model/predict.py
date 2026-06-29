@@ -6,7 +6,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from model.features import FEATURE_NAMES, _bin, _load_weather
+from model.features import FEATURE_NAMES, _load_weather
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ def predict_and_save(
     conn = sqlite3.connect(db_path)
 
     hist = pd.read_sql(
-        f"""
+        """
         SELECT
             round(latitude * 2) / 2  AS cell_lat,
             round(longitude * 2) / 2 AS cell_lon,
@@ -37,10 +37,12 @@ def predict_and_save(
             AVG(frp)                  AS hist_avg_size_acres,
             COUNT(*) / 27.0           AS hist_fire_density
         FROM fires_historical
-        WHERE CAST(strftime('%m', acq_date) AS INTEGER) = {month}
+        WHERE CAST(strftime('%m', acq_date) AS INTEGER) = ?
+          AND acq_date < '2019-01-01'
         GROUP BY cell_lat, cell_lon
         """,
         conn,
+        params=(month,),
     )
 
     weather = _load_weather(conn)
@@ -77,6 +79,10 @@ def predict_and_save(
     ]
 
     out_conn = sqlite3.connect(db_path)
+    out_conn.execute(
+        "DELETE FROM fires_predictions WHERE prediction_date = ? AND model_version = ?",
+        (prediction_date, _MODEL_VERSION),
+    )
     out_conn.executemany(
         """
         INSERT INTO fires_predictions

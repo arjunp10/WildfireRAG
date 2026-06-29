@@ -1,7 +1,6 @@
 import sqlite3
 import numpy as np
 import joblib
-import pytest
 from pathlib import Path
 from sklearn.linear_model import Ridge
 from sklearn.preprocessing import StandardScaler

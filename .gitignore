@@ -5,3 +5,7 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 dist/
+.DS_Store
+data/*.sqlite
+data/*.csv
+.claude/

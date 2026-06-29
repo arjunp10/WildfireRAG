@@ -5,7 +5,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_PATH = Path(__file__).parent / "wildfires.sqlite"
+_DEFAULT_PATH = Path(__file__).parent / "data.sqlite"
 _QUERY = """
     SELECT
         LATITUDE,
@@ -13,7 +13,7 @@ _QUERY = """
         FIRE_SIZE,
         FIRE_YEAR,
         DISCOVERY_DOY,
-        STAT_CAUSE_DESCR
+        NWCG_GENERAL_CAUSE
     FROM Fires
     WHERE LATITUDE IS NOT NULL
       AND LONGITUDE IS NOT NULL
@@ -31,7 +31,7 @@ def fetch(file_path: str | Path | None = None) -> list[dict]:
         raise FileNotFoundError(
             f"Kaggle wildfire dataset not found at {path}. "
             "Download it from https://www.kaggle.com/datasets/rtatman/188-million-us-wildfires "
-            "and save as data/wildfires.sqlite"
+            "and save as data/data.sqlite"
         )
 
     logger.info("Historical: reading from %s", path)
@@ -52,7 +52,7 @@ def fetch(file_path: str | Path | None = None) -> list[dict]:
                 "acq_date": _doy_to_date(row["FIRE_YEAR"], row["DISCOVERY_DOY"]),
                 "acq_time": "0000",
                 "confidence": "high",
-                "satellite": row["STAT_CAUSE_DESCR"] or "Unknown",
+                "satellite": row["NWCG_GENERAL_CAUSE"] or "Unknown",
             })
         except Exception as exc:
             logger.warning("Historical: skipping malformed row — %s", exc)

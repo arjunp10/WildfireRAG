@@ -30,7 +30,7 @@ def fetch_articles(db_path: str, api_key: str, hours: int = 48) -> int:
     resp = requests.get(
         _API_URL,
         params={
-            "q": 'wildfire OR "forest fire"',
+            "qInTitle": 'wildfire OR "forest fire"',
             "language": "en",
             "sortBy": "publishedAt",
             "from": from_dt,

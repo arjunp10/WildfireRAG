@@ -1,4 +1,5 @@
 import os
+import sqlite3
 
 import anthropic
 from dotenv import load_dotenv
@@ -6,18 +7,19 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from rag.retriever import query_similar
+from rag.retriever import query_news, query_similar
 
 load_dotenv()
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 CHROMA_DIR = os.environ.get("CHROMA_DIR", "rag/chroma_db")
+DB_PATH = os.environ.get("DB_PATH", "firerag.db")
 
 _SYSTEM_PROMPT = """\
 You are a wildfire analysis assistant for WildfireRAG. You have access to historical fire data \
 for the United States. Answer questions about fire risk, patterns, and history concisely and clearly.
 
-Relevant historical fire data (retrieved by similarity):
+Relevant data (historical fire records and recent news):
 {context}
 
 Base your answer on this data. If the data doesn't cover the user's question, say so briefly. \
@@ -47,9 +49,31 @@ class ChatResponse(BaseModel):
     answer: str
 
 
+class ArticleOut(BaseModel):
+    title: str
+    description: str | None
+    url: str
+    source: str | None
+    published_at: str | None
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/news", response_model=list[ArticleOut])
+def get_news():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT title, description, url, source, published_at FROM articles ORDER BY published_at DESC LIMIT 15"
+        ).fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+    except sqlite3.OperationalError:
+        return []
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -59,16 +83,22 @@ def chat(req: ChatRequest):
     if not os.path.exists(CHROMA_DIR):
         raise HTTPException(
             status_code=500,
-            detail=f"ChromaDB not found at '{CHROMA_DIR}'. Run: python3 rag/build_index.py",
+            detail=f"ChromaDB not found at '{CHROMA_DIR}'. Run: python3 -m rag.build_index",
         )
 
-    context_docs = query_similar(req.question, CHROMA_DIR, k=5)
-    context = "\n".join(f"- {doc}" for doc in context_docs)
+    historical_docs = query_similar(req.question, CHROMA_DIR, k=3)
+    try:
+        news_docs = query_news(req.question, CHROMA_DIR, k=2)
+    except Exception:
+        news_docs = []
+
+    context_parts = [f"[HISTORICAL] {doc}" for doc in historical_docs]
+    context_parts += [f"[NEWS] {doc}" for doc in news_docs]
+    context = "\n".join(f"- {part}" for part in context_parts)
     system_prompt = _SYSTEM_PROMPT.format(context=context)
 
     history = req.history[-6:]
     msgs = [{"role": m.role, "content": m.content} for m in history]
-    # Drop leading assistant turns — Claude requires first message to be "user"
     while msgs and msgs[0]["role"] != "user":
         msgs.pop(0)
     msgs.append({"role": "user", "content": req.question})

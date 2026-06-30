@@ -37,3 +37,31 @@ def test_returns_k_results(chroma_dir):
 def test_results_are_strings(chroma_dir):
     result = query_similar("wildfire history", chroma_dir, k=2)
     assert all(isinstance(r, str) and len(r) > 0 for r in result)
+
+
+@pytest.fixture
+def news_chroma_dir(tmp_path):
+    ef = SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+    client = chromadb.PersistentClient(path=str(tmp_path / "chroma_news"))
+    col = client.create_collection("wildfire-news", embedding_function=ef)
+    col.add(
+        documents=[
+            "[Reuters] California wildfire forces evacuation. Blaze near Sacramento. Published: 2026-06-30T10:00:00Z.",
+            "[AP News] Oregon forest fire spreads overnight. Crews battle southern blaze. Published: 2026-06-30T08:00:00Z.",
+            "[BBC] Texas drought worsens fire risk. Dry conditions across the state. Published: 2026-06-30T06:00:00Z.",
+        ],
+        ids=["n0", "n1", "n2"],
+    )
+    return str(tmp_path / "chroma_news")
+
+
+def test_query_news_returns_list(news_chroma_dir):
+    from rag.retriever import query_news
+    result = query_news("fire news", news_chroma_dir, k=2)
+    assert isinstance(result, list)
+
+
+def test_query_news_returns_k_results(news_chroma_dir):
+    from rag.retriever import query_news
+    result = query_news("California wildfire", news_chroma_dir, k=2)
+    assert len(result) == 2

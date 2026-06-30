@@ -74,7 +74,11 @@ export default function NewsPanel() {
         {articles.map((article, i) => (
           <div
             key={i}
-            onClick={() => window.open(article.url, '_blank', 'noopener,noreferrer')}
+            onClick={() => {
+              if (/^https?:\/\//.test(article.url)) {
+                window.open(article.url, '_blank', 'noopener,noreferrer')
+              }
+            }}
             style={{
               padding: 12, marginBottom: 4, borderRadius: 8,
               cursor: 'pointer',

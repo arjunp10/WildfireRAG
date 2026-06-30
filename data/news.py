@@ -35,8 +35,9 @@ def fetch_articles(db_path: str, api_key: str, hours: int = 48) -> int:
             "sortBy": "publishedAt",
             "from": from_dt,
             "pageSize": 100,
-            "apiKey": api_key,
         },
+        headers={"X-Api-Key": api_key},
+        timeout=15,
     )
     if resp.status_code != 200:
         raise RuntimeError(f"News API HTTP {resp.status_code}")

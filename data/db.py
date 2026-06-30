@@ -50,6 +50,16 @@ CREATE TABLE IF NOT EXISTS fires_predictions (
     model_version    TEXT,
     ingested_at      TEXT
 );
+
+CREATE TABLE IF NOT EXISTS articles (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    title        TEXT NOT NULL,
+    description  TEXT,
+    url          TEXT NOT NULL UNIQUE,
+    source       TEXT,
+    published_at TEXT,
+    fetched_at   TEXT
+);
 """
 
 

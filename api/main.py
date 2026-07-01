@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from rag.retriever import query_news, query_similar
+from rag.retriever import query_firms, query_news, query_similar
 
 load_dotenv()
 
@@ -16,10 +16,11 @@ CHROMA_DIR = os.environ.get("CHROMA_DIR", "rag/chroma_db")
 DB_PATH = os.environ.get("DB_PATH", "firerag.db")
 
 _SYSTEM_PROMPT = """\
-You are a wildfire analysis assistant for WildfireRAG. You have access to historical fire data \
-for the United States. Answer questions about fire risk, patterns, and history concisely and clearly.
+You are a wildfire analysis assistant for WildfireRAG. You have access to historical fire data, \
+real-time active fire detections, and recent news for the United States. \
+Answer questions about fire risk, patterns, history, and current conditions concisely and clearly.
 
-Relevant data (historical fire records and recent news):
+Relevant data (historical records, active fire detections, and recent news):
 {context}
 
 Base your answer on this data. If the data doesn't cover the user's question, say so briefly. \
@@ -76,6 +77,28 @@ def get_news():
         return []
 
 
+@app.get("/stats")
+def get_stats():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("""
+            SELECT
+                COUNT(*) as total_fires,
+                MAX(acq_date) as last_date,
+                SUM(CASE WHEN confidence = 'high' THEN 1 ELSE 0 END) as high_confidence
+            FROM fires_realtime
+        """).fetchone()
+        conn.close()
+        return {
+            "total_fires": row["total_fires"] if row else 0,
+            "last_date": row["last_date"] if row else None,
+            "high_confidence": row["high_confidence"] if row else 0,
+        }
+    except sqlite3.OperationalError:
+        return {"total_fires": 0, "last_date": None, "high_confidence": 0}
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
     if not ANTHROPIC_API_KEY:
@@ -91,8 +114,13 @@ def chat(req: ChatRequest):
         news_docs = query_news(req.question, CHROMA_DIR, k=2)
     except Exception:
         news_docs = []
+    try:
+        firms_docs = query_firms(req.question, CHROMA_DIR, k=3)
+    except Exception:
+        firms_docs = []
 
     context_parts = [f"[HISTORICAL] {doc}" for doc in historical_docs]
+    context_parts += [f"[ACTIVE FIRES] {doc}" for doc in firms_docs]
     context_parts += [f"[NEWS] {doc}" for doc in news_docs]
     context = "\n".join(f"- {part}" for part in context_parts)
     system_prompt = _SYSTEM_PROMPT.format(context=context)

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 function timeAgo(dateStr) {
   if (!dateStr) return ''
@@ -25,6 +25,7 @@ export default function NewsPanel() {
   const [articles, setArticles] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
     fetch('http://localhost:8000/news')
@@ -36,6 +37,30 @@ export default function NewsPanel() {
       .catch(() => setError('Could not load news.'))
       .finally(() => setLoading(false))
   }, [])
+
+  if (collapsed) {
+    return (
+      <button
+        onClick={() => setCollapsed(false)}
+        style={{
+          position: 'fixed', left: 0, top: '50%', transform: 'translateY(-50%)',
+          zIndex: 1000,
+          background: 'rgba(15,15,25,0.85)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderLeft: 'none',
+          borderRadius: '0 8px 8px 0',
+          color: '#e2e8f0', cursor: 'pointer',
+          padding: '12px 6px',
+          writingMode: 'vertical-rl',
+          fontSize: 11, fontFamily: 'system-ui', fontWeight: 600,
+          letterSpacing: 1,
+        }}
+      >
+        📰 NEWS
+      </button>
+    )
+  }
 
   return (
     <div style={{
@@ -54,8 +79,17 @@ export default function NewsPanel() {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         fontWeight: 600, fontSize: 14,
       }}>
-        <span>Live News</span>
-        <span>📰</span>
+        <span>📰 Live News</span>
+        <button
+          onClick={() => setCollapsed(true)}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: '#64748b', fontSize: 16, lineHeight: 1, padding: 2,
+          }}
+          title="Collapse"
+        >
+          ‹
+        </button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>

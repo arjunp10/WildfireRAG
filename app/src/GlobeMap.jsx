@@ -1,9 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 export default function GlobeMap({ mapboxToken }) {
   const containerRef = useRef(null)
+  const mapRef = useRef(null)
+  const [confidenceFilter, setConfidenceFilter] = useState('all')
 
   useEffect(() => {
     mapboxgl.accessToken = mapboxToken
@@ -17,6 +19,7 @@ export default function GlobeMap({ mapboxToken }) {
       pitch: 30,
       bearing: 0,
     })
+    mapRef.current = map
 
     map.addControl(new mapboxgl.NavigationControl(), 'top-right')
     map.addControl(new mapboxgl.FullscreenControl(), 'top-right')
@@ -110,8 +113,52 @@ export default function GlobeMap({ mapboxToken }) {
     return () => {
       cancelled = true
       map.remove()
+      mapRef.current = null
     }
   }, [mapboxToken])
 
-  return <div ref={containerRef} style={{ width: '100vw', height: '100vh' }} />
+  // Apply confidence filter whenever it changes
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !map.getLayer('fires-layer')) return
+    if (confidenceFilter === 'all') {
+      map.setFilter('fires-layer', null)
+    } else {
+      map.setFilter('fires-layer', ['==', ['get', 'confidence'], confidenceFilter])
+    }
+  }, [confidenceFilter])
+
+  const btnStyle = (val) => ({
+    padding: '4px 10px',
+    borderRadius: 4,
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: 11,
+    fontWeight: 600,
+    background: confidenceFilter === val ? 'rgba(239,68,68,0.7)' : 'rgba(255,255,255,0.1)',
+    color: confidenceFilter === val ? '#fff' : '#94a3b8',
+    transition: 'background 0.15s',
+  })
+
+  return (
+    <>
+      <div ref={containerRef} style={{ width: '100vw', height: '100vh' }} />
+      <div style={{
+        position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+        zIndex: 900,
+        background: 'rgba(15,15,25,0.85)',
+        backdropFilter: 'blur(8px)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: 8,
+        padding: '6px 10px',
+        display: 'flex', alignItems: 'center', gap: 8,
+        fontFamily: 'system-ui', fontSize: 11, color: '#94a3b8',
+      }}>
+        <span style={{ marginRight: 4 }}>Confidence:</span>
+        <button style={btnStyle('all')} onClick={() => setConfidenceFilter('all')}>All</button>
+        <button style={btnStyle('nominal')} onClick={() => setConfidenceFilter('nominal')}>Nominal</button>
+        <button style={btnStyle('high')} onClick={() => setConfidenceFilter('high')}>High</button>
+      </div>
+    </>
+  )
 }

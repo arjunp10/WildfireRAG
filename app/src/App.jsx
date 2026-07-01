@@ -1,6 +1,7 @@
 import GlobeMap from './GlobeMap.jsx'
 import ChatBox from './ChatBox.jsx'
 import NewsPanel from './NewsPanel.jsx'
+import StatsBar from './StatsBar.jsx'
 
 const token = import.meta.env.VITE_MAPBOX_TOKEN
 
@@ -19,6 +20,7 @@ export default function App() {
   return (
     <>
       <GlobeMap mapboxToken={token} />
+      <StatsBar />
       <NewsPanel />
       <ChatBox />
     </>

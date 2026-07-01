@@ -6,6 +6,7 @@ import reverse_geocoder as rg
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
 from rag.config import COLLECTION_NAME, EMBED_MODEL
+from rag.geo import ADMIN1_TO_ABBREV
 
 _MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -44,13 +45,13 @@ def build_index(db_path: str = "firerag.db", chroma_dir: str = "rag/chroma_db") 
     coords = [(float(r[0]), float(r[1])) for r in rows]
     geo = rg.search(coords, mode=1, verbose=False)
 
-    docs, ids = [], []
+    docs, ids, metadatas = [], [], []
     for i, (row, loc) in enumerate(zip(rows, geo)):
         cell_lat, cell_lon, month, fire_count, avg_b, avg_frp, min_yr, max_yr = row
         month_name = _MONTHS[int(month) - 1]
-        state = loc.get("admin1", "")
+        admin1 = loc.get("admin1", "")
         country = loc.get("cc", "")
-        location_label = f", {state}" if state and country == "US" else (f", {country}" if country else "")
+        location_label = f", {admin1}" if admin1 and country == "US" else (f", {country}" if country else "")
         doc = (
             f"Grid cell (lat={cell_lat}, lon={cell_lon}){location_label}, "
             f"Month={month_name} (month {int(month)}): {fire_count} fires ({min_yr}-{max_yr}). "
@@ -58,11 +59,14 @@ def build_index(db_path: str = "firerag.db", chroma_dir: str = "rag/chroma_db") 
         )
         docs.append(doc)
         ids.append(f"region-{i}")
+        abbrev = ADMIN1_TO_ABBREV.get(admin1) if country == "US" else None
+        metadatas.append({"state": abbrev} if abbrev else None)
 
     for start in range(0, len(docs), _BATCH_SIZE):
         collection.add(
             documents=docs[start:start + _BATCH_SIZE],
             ids=ids[start:start + _BATCH_SIZE],
+            metadatas=metadatas[start:start + _BATCH_SIZE],
         )
 
     return len(docs)

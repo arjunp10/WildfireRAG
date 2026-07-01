@@ -40,7 +40,7 @@ def save(records: list[dict], conn: sqlite3.Connection) -> int:
     ingested_at = datetime.now(timezone.utc).isoformat()
     conn.executemany(
         """
-        INSERT INTO fires_realtime
+        INSERT OR IGNORE INTO fires_realtime
             (latitude, longitude, brightness, acq_date, acq_time, confidence, satellite, ingested_at)
         VALUES
             (:latitude, :longitude, :brightness, :acq_date, :acq_time, :confidence, :satellite, :ingested_at)

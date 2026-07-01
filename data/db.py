@@ -16,6 +16,9 @@ CREATE TABLE IF NOT EXISTS fires_realtime (
     ingested_at TEXT
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS fires_realtime_dedup
+    ON fires_realtime (latitude, longitude, acq_date, acq_time);
+
 CREATE TABLE IF NOT EXISTS weather (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     latitude    REAL,

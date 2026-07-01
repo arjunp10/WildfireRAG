@@ -6,6 +6,7 @@ import reverse_geocoder as rg
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
 from rag.config import EMBED_MODEL, FIRMS_COLLECTION
+from rag.geo import ADMIN1_TO_ABBREV
 
 _BATCH_SIZE = 100
 
@@ -41,15 +42,15 @@ def build_firms_index(db_path: str = "firerag.db", chroma_dir: str = "rag/chroma
     coords = [(float(r[0]), float(r[1])) for r in rows]
     geo = rg.search(coords, mode=1, verbose=False)
 
-    docs, ids = [], []
+    docs, ids, metadatas = [], [], []
     for i, (row, loc) in enumerate(zip(rows, geo)):
         cell_lat, cell_lon, count, avg_b, latest, confidences = row
-        state = loc.get("admin1", "")
+        admin1 = loc.get("admin1", "")
         city = loc.get("name", "")
         country = loc.get("cc", "")
 
-        if country == "US" and state:
-            location = f"{city}, {state}" if city else state
+        if country == "US" and admin1:
+            location = f"{city}, {admin1}" if city else admin1
         else:
             location = f"lat={cell_lat}, lon={cell_lon}"
 
@@ -63,11 +64,14 @@ def build_firms_index(db_path: str = "firerag.db", chroma_dir: str = "rag/chroma
         )
         docs.append(doc)
         ids.append(f"firms-{i}")
+        abbrev = ADMIN1_TO_ABBREV.get(admin1) if country == "US" else None
+        metadatas.append({"state": abbrev} if abbrev else None)
 
     for start in range(0, len(docs), _BATCH_SIZE):
         collection.add(
             documents=docs[start:start + _BATCH_SIZE],
             ids=ids[start:start + _BATCH_SIZE],
+            metadatas=metadatas[start:start + _BATCH_SIZE],
         )
 
     return len(docs)

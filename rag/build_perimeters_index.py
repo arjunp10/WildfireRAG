@@ -22,14 +22,16 @@ def build_perimeters_index(db_path: str = "firerag.db", chroma_dir: str = "rag/c
 
     conn = sqlite3.connect(db_path)
     rows = conn.execute("""
-        SELECT fire_name, fire_year, state, acres, agency, discovery_date, cause, latitude, longitude
+        SELECT fire_name,
+               COALESCE(fire_year, CAST(substr(discovery_date,1,4) AS INTEGER)) AS yr,
+               state, acres, agency, discovery_date, cause, latitude, longitude
         FROM fire_perimeters
         WHERE acres >= 100
         ORDER BY acres DESC
     """).fetchall()
     conn.close()
 
-    docs, ids = [], []
+    docs, ids, metadatas = [], [], []
     for i, (name, year, state, acres, agency, date, cause, lat, lon) in enumerate(rows):
         parts = []
         name_str = name or "Unknown Fire"
@@ -48,11 +50,19 @@ def build_perimeters_index(db_path: str = "firerag.db", chroma_dir: str = "rag/c
         doc = " ".join(parts)
         docs.append(doc)
         ids.append(f"perim-{i}")
+        meta: dict = {}
+        if state:
+            meta["state"] = state
+        if year:
+            meta["year"] = int(year)
+        metadatas.append(meta if meta else None)
 
     for start in range(0, len(docs), _BATCH_SIZE):
+        batch_meta = metadatas[start:start + _BATCH_SIZE]
         collection.add(
             documents=docs[start:start + _BATCH_SIZE],
             ids=ids[start:start + _BATCH_SIZE],
+            metadatas=batch_meta,
         )
 
     return len(docs)

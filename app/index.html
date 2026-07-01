@@ -6,7 +6,89 @@
     <title>FireRAG Globe</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { overflow: hidden; }
+      body { overflow: hidden; background: #080a12; }
+
+      /* Mapbox popup overrides */
+      .mapboxgl-popup-content {
+        background: rgba(8,10,18,0.97) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        border-radius: 10px !important;
+        padding: 0 !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+        backdrop-filter: blur(16px);
+      }
+      .mapboxgl-popup-tip {
+        display: none !important;
+      }
+      .mapboxgl-popup-close-button {
+        color: #334155 !important;
+        font-size: 16px !important;
+        padding: 6px 8px !important;
+        line-height: 1 !important;
+        right: 2px !important;
+        top: 2px !important;
+      }
+      .mapboxgl-popup-close-button:hover {
+        color: #e2e8f0 !important;
+        background: none !important;
+      }
+      .popup-inner {
+        padding: 14px 16px 12px;
+        font-family: system-ui, -apple-system, sans-serif;
+        min-width: 200px;
+      }
+      .popup-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #e2e8f0;
+        margin-bottom: 10px;
+        padding-right: 20px;
+      }
+      .popup-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11.5px;
+        color: #475569;
+        margin-bottom: 5px;
+        gap: 12px;
+      }
+      .popup-row span:last-child {
+        color: #94a3b8;
+        font-weight: 600;
+        text-align: right;
+      }
+      .popup-risk span:last-child {
+        color: #f97316;
+      }
+
+      /* Scrollbar styling */
+      ::-webkit-scrollbar { width: 4px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+      /* Mapbox navigation control */
+      .mapboxgl-ctrl-group {
+        background: rgba(8,10,18,0.9) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        box-shadow: none !important;
+        border-radius: 8px !important;
+        margin-bottom: 62px !important;
+        margin-right: 12px !important;
+      }
+      .mapboxgl-ctrl-group button {
+        background: transparent !important;
+        color: #64748b !important;
+        width: 30px !important;
+        height: 30px !important;
+      }
+      .mapboxgl-ctrl-group button:hover {
+        background: rgba(255,255,255,0.06) !important;
+      }
+      .mapboxgl-ctrl-icon {
+        filter: invert(0.5) !important;
+      }
     </style>
   </head>
   <body>

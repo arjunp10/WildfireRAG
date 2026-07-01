@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 
 import anthropic
@@ -7,6 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from rag.geo import build_where, extract_geo
 from rag.retriever import query_firms, query_news, query_perimeters, query_similar
 
 load_dotenv()
@@ -16,16 +18,21 @@ CHROMA_DIR = os.environ.get("CHROMA_DIR", "rag/chroma_db")
 DB_PATH = os.environ.get("DB_PATH", "firerag.db")
 
 _SYSTEM_PROMPT = """\
-You are a wildfire analysis assistant for WildfireRAG. You have access to: historical fire \
-statistics, confirmed wildfire perimeter records (2000-2026, named fires with acreage), \
-real-time active fire detections, and recent news for the United States. \
-Answer questions about fire risk, patterns, history, and current conditions concisely and clearly.
+You are a wildfire analysis assistant for WildfireRAG. You have access to confirmed wildfire \
+perimeter records (2000-2026, named fires with acreage), real-time active fire detections, \
+historical fire statistics, and recent news for the United States.
 
-Relevant data (historical statistics, confirmed fires, active detections, and news):
+Relevant data from the dataset:
 {context}
 
-Base your answer on this data. If the data doesn't cover the user's question, say so briefly. \
-Keep answers under 150 words."""
+Instructions:
+- Answer concisely, under 150 words.
+- Prioritize information from the dataset above. You may supplement with your own knowledge \
+  for well-known fires (e.g. large named fires that are widely documented) but clearly distinguish \
+  dataset facts from general knowledge.
+- Never say a fire "isn't in my dataset" if it appears on the map or is a well-known event — \
+  the dataset may have it under a slightly different name or with a missing year field.
+- Do not apologize for using accurate general knowledge to fill gaps."""
 
 app = FastAPI()
 
@@ -57,6 +64,51 @@ class ArticleOut(BaseModel):
     url: str
     source: str | None
     published_at: str | None
+
+
+def _get_top_fires(states: list[str], year: int | None, limit: int = 8) -> list[str]:
+    """Direct SQL: largest confirmed fires for the detected state(s)/year. Bypasses semantic search."""
+    if not states and year is None:
+        return []
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conditions = ["acres >= 100"]
+        params: list = []
+        if states:
+            placeholders = ",".join("?" * len(states))
+            conditions.append(f"state IN ({placeholders})")
+            params.extend(states)
+        if year is not None:
+            conditions.append("COALESCE(fire_year, CAST(substr(discovery_date,1,4) AS INTEGER)) = ?")
+            params.append(year)
+        rows = conn.execute(
+            f"""
+            SELECT fire_name,
+                   COALESCE(fire_year, CAST(substr(discovery_date,1,4) AS INTEGER)) AS yr,
+                   state, acres, agency, discovery_date, cause
+            FROM fire_perimeters
+            WHERE {" AND ".join(conditions)}
+            ORDER BY acres DESC
+            LIMIT {limit}
+            """,
+            params,
+        ).fetchall()
+        conn.close()
+    except sqlite3.OperationalError:
+        return []
+
+    docs = []
+    for name, yr, state, acres, agency, date, cause in rows:
+        parts = [f"[CONFIRMED WILDFIRE] {name or 'Unknown'} ({yr}){', ' + state if state else ''}."]
+        parts.append(f"{acres:,.0f} acres burned.")
+        if agency:
+            parts.append(f"Agency: {agency}.")
+        if date:
+            parts.append(f"Discovered: {date}.")
+        if cause:
+            parts.append(f"Cause: {cause}.")
+        docs.append(" ".join(parts))
+    return docs
 
 
 @app.get("/health")
@@ -110,23 +162,38 @@ def chat(req: ChatRequest):
             detail=f"ChromaDB not found at '{CHROMA_DIR}'. Run: python3 -m rag.build_index",
         )
 
-    historical_docs = query_similar(req.question, CHROMA_DIR, k=3)
+    states, year = extract_geo(req.question)
+    geo_where = build_where(states, year)
+    # For active fire queries, year filtering doesn't apply (firms is real-time)
+    state_only_where = build_where(states, None)
+
+    historical_docs = query_similar(req.question, CHROMA_DIR, k=5, where=geo_where)
     try:
         news_docs = query_news(req.question, CHROMA_DIR, k=2)
     except Exception:
         news_docs = []
     try:
-        firms_docs = query_firms(req.question, CHROMA_DIR, k=3)
+        firms_docs = query_firms(req.question, CHROMA_DIR, k=3, where=state_only_where)
     except Exception:
         firms_docs = []
     try:
-        perimeter_docs = query_perimeters(req.question, CHROMA_DIR, k=3)
+        perimeter_docs = query_perimeters(req.question, CHROMA_DIR, k=5, where=geo_where)
     except Exception:
         perimeter_docs = []
+
+    # Direct SQL lookup: top fires by acreage for the detected region/year.
+    # This ensures large named fires (e.g. Biscuit Fire) are always surfaced
+    # even when semantic similarity doesn't rank them first.
+    top_fire_docs = _get_top_fires(states, year, limit=8)
+
+    # Deduplicate: drop SQL results that are already covered by semantic results
+    semantic_texts = set(perimeter_docs)
+    unique_top = [d for d in top_fire_docs if d not in semantic_texts]
 
     context_parts = [f"[HISTORICAL] {doc}" for doc in historical_docs]
     context_parts += [f"[ACTIVE FIRES] {doc}" for doc in firms_docs]
     context_parts += [f"[CONFIRMED FIRES] {doc}" for doc in perimeter_docs]
+    context_parts += [f"[CONFIRMED FIRES] {doc}" for doc in unique_top]
     context_parts += [f"[NEWS] {doc}" for doc in news_docs]
     context = "\n".join(f"- {part}" for part in context_parts)
     system_prompt = _SYSTEM_PROMPT.format(context=context)

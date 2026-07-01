@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from rag.retriever import query_firms, query_news, query_similar
+from rag.retriever import query_firms, query_news, query_perimeters, query_similar
 
 load_dotenv()
 
@@ -16,11 +16,12 @@ CHROMA_DIR = os.environ.get("CHROMA_DIR", "rag/chroma_db")
 DB_PATH = os.environ.get("DB_PATH", "firerag.db")
 
 _SYSTEM_PROMPT = """\
-You are a wildfire analysis assistant for WildfireRAG. You have access to historical fire data, \
+You are a wildfire analysis assistant for WildfireRAG. You have access to: historical fire \
+statistics, confirmed wildfire perimeter records (2000-2026, named fires with acreage), \
 real-time active fire detections, and recent news for the United States. \
 Answer questions about fire risk, patterns, history, and current conditions concisely and clearly.
 
-Relevant data (historical records, active fire detections, and recent news):
+Relevant data (historical statistics, confirmed fires, active detections, and news):
 {context}
 
 Base your answer on this data. If the data doesn't cover the user's question, say so briefly. \
@@ -118,9 +119,14 @@ def chat(req: ChatRequest):
         firms_docs = query_firms(req.question, CHROMA_DIR, k=3)
     except Exception:
         firms_docs = []
+    try:
+        perimeter_docs = query_perimeters(req.question, CHROMA_DIR, k=3)
+    except Exception:
+        perimeter_docs = []
 
     context_parts = [f"[HISTORICAL] {doc}" for doc in historical_docs]
     context_parts += [f"[ACTIVE FIRES] {doc}" for doc in firms_docs]
+    context_parts += [f"[CONFIRMED FIRES] {doc}" for doc in perimeter_docs]
     context_parts += [f"[NEWS] {doc}" for doc in news_docs]
     context = "\n".join(f"- {part}" for part in context_parts)
     system_prompt = _SYSTEM_PROMPT.format(context=context)

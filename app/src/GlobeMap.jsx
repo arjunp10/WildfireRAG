@@ -156,8 +156,8 @@ export default function GlobeMap({ mapboxToken }) {
       }}>
         <span style={{ marginRight: 4 }}>Confidence:</span>
         <button style={btnStyle('all')} onClick={() => setConfidenceFilter('all')}>All</button>
-        <button style={btnStyle('nominal')} onClick={() => setConfidenceFilter('nominal')}>Nominal</button>
-        <button style={btnStyle('high')} onClick={() => setConfidenceFilter('high')}>High</button>
+        <button style={btnStyle('n')} onClick={() => setConfidenceFilter('n')}>Nominal</button>
+        <button style={btnStyle('h')} onClick={() => setConfidenceFilter('h')}>High</button>
       </div>
     </>
   )

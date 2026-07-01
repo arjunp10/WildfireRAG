@@ -86,7 +86,7 @@ def get_stats():
             SELECT
                 COUNT(*) as total_fires,
                 MAX(acq_date) as last_date,
-                SUM(CASE WHEN confidence = 'high' THEN 1 ELSE 0 END) as high_confidence
+                SUM(CASE WHEN confidence = 'h' THEN 1 ELSE 0 END) as high_confidence
             FROM fires_realtime
         """).fetchone()
         conn.close()

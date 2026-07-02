@@ -1,38 +1,68 @@
-# WildfireRAG
+# FireRAG
 
-A wildfire monitoring, forecasting, and retrieval-augmented generation (RAG) system built in Python.
+A wildfire intelligence platform combining a RAG-powered chat interface with real-time and historical fire data visualized on an interactive 3D globe.
 
 ## What It Does
 
-1. **Real-time monitoring** — pulls active fire hotspots from NASA FIRMS and current weather from NOAA
-2. **Predictive forecasting** — trains a model on historical fire data to predict fire probability by location and date
-3. **RAG query layer** — answers natural language questions like "Why are fires concentrated in California?" by retrieving historical fire data and current conditions
+- **Natural-language Q&A** — ask questions like *"Why is fire risk high in Northern California?"* and get answers grounded in live weather, satellite detections, and 26 years of fire history via RAG
+- **Active fire tracking** — real-time NASA FIRMS satellite hotspots with high/nominal/low confidence filtering
+- **Fire Risk Index** — composite score from Fosberg FWI (peak 7-day NWS forecast) × 26-year ignition history, rendered as a choropleth grid
+- **Spread prediction** — 24-hour wind-aligned spread ellipses for active fire clusters
+- **Historical record** — 41,000+ fire perimeters (2000–2026) with a month slider
 
 ## Tech Stack
 
-- **Data**: NASA FIRMS API, NOAA Weather API, USFS Wildfire Dataset (Kaggle)
-- **Storage**: SQLite
-- **Models**: scikit-learn (logistic regression / random forest)
-- **RAG**: LangChain + ChromaDB
-- **Backend**: FastAPI
-- **Frontend**: Streamlit
+| Layer | Technologies |
+|---|---|
+| Frontend | React, Vite, Mapbox GL JS |
+| Backend | FastAPI, SQLite |
+| Vector DB | ChromaDB |
+| Embeddings | sentence-transformers (`all-MiniLM-L6-v2`) |
+| LLM | Anthropic Claude API (Haiku) |
+| Data | NASA FIRMS, NWS API, GeomAC/WFIGS perimeters |
+
+No LangChain. No LlamaIndex. RAG pipeline, context injection, and embeddings are all built from scratch.
+
+## Architecture
+
+```
+NASA FIRMS ──► SQLite (fires_grid)  ──►┐
+NWS API    ──► SQLite (weather_grid) ──►├── FastAPI /chat
+GeomAC/WFIGS ► ChromaDB (perimeters) ──►│     └── Claude Haiku
+News API   ──► ChromaDB (news)  ────────┘
+                                         ▲
+                              state bbox SQL filtering
+                              + ChromaDB semantic search
+```
+
+At query time, the `/chat` endpoint:
+1. Filters weather/risk/spread/FIRMS data by the states mentioned in the query via bounding-box SQL
+2. Runs semantic search over ChromaDB collections (perimeters, news, regions, FIRMS)
+3. Injects all context into Claude Haiku's prompt
 
 ## Project Structure
 
 ```
-WildfireRAG/
+FireRAG/
+├── api/
+│   └── main.py          # FastAPI: /chat, /risk/grid, /spread/current, /stats
+├── app/
+│   └── src/
+│       ├── App.jsx
+│       ├── GlobeMap.jsx  # Mapbox GL layers (fires, weather, risk, spread, perimeters)
+│       ├── Sidebar.jsx   # Layer toggles
+│       ├── TimelineBar.jsx
+│       └── ChatBox.jsx
 ├── data/
-│   ├── db.py          # SQLite schema and connection
-│   ├── firms.py       # NASA FIRMS real-time hotspot ingest
-│   ├── noaa.py        # NOAA weather ingest (25 fire-prone locations)
-│   └── historical.py  # Kaggle USFS historical fire data ingest
-├── ingest.py          # CLI: runs all data sources, logs samples
-├── tests/             # pytest test suite (21 tests)
-├── docs/
-│   └── superpowers/
-│       ├── specs/     # Design documents
-│       └── plans/     # Implementation plans
-└── requirements.txt
+│   ├── firms.py          # NASA FIRMS ingest
+│   └── weather_grid.py   # NWS weather grid builder
+├── risk/
+│   └── compute_risk.py   # Fosberg FWI + historical ignition → risk score
+├── spread/
+│   └── compute.py        # DBSCAN clustering + wind-aligned ellipses
+├── weather/
+│   └── fetch_forecast.py # NWS 7-day hourly forecast → peak FWI
+└── refresh_weather.sh    # Daily refresh: FIRMS + weather + forecast + risk
 ```
 
 ## Setup
@@ -41,58 +71,37 @@ WildfireRAG/
 
 ```bash
 pip install -r requirements.txt
+cd app && npm install
 ```
 
-### 2. Get a NASA FIRMS API key
-
-Sign up at https://firms.modaps.eosdis.nasa.gov/api/ (free).
+### 2. Set environment variables
 
 ```bash
-echo "FIRMS_MAP_KEY=your_key_here" > .env
+export MAPBOX_TOKEN=your_mapbox_token
+export ANTHROPIC_API_KEY=your_anthropic_key
+export FIRMS_MAP_KEY=your_firms_key
+export NEWS_API_KEY=your_newsapi_key
 ```
 
-### 3. Download historical fire data
-
-Download the [2.3 Million US Wildfires (6th Edition)](https://www.kaggle.com/datasets/rtatman/188-million-us-wildfires) dataset from Kaggle and save the `.sqlite` file as:
-
-```
-data/data.sqlite
-```
-
-### 4. Run the ingest pipeline
+### 3. Run the daily refresh
 
 ```bash
-python3 ingest.py
+bash refresh_weather.sh
 ```
 
-This pulls:
-- Live fire hotspots (NASA FIRMS VIIRS, last 24h, CONUS)
-- Current weather at 25 fire-prone locations (NOAA)
-- 2.3M historical fire records from 1992–2020 (Kaggle/USFS)
-
-All data lands in `firerag.db` (SQLite).
-
-## Database Schema
-
-| Table | Description |
-|---|---|
-| `fires_realtime` | Active fire hotspots from NASA FIRMS |
-| `weather` | Current weather at fire-prone locations |
-| `fires_historical` | 2.3M historical US fire records (1992–2020) |
-| `fires_predictions` | Model predictions (populated in Phase 2) |
-
-## Development Phases
-
-- [x] **Phase 1** — Data collection pipeline (NASA FIRMS + NOAA + Kaggle)
-- [ ] **Phase 2** — Forecasting model (logistic regression / random forest)
-- [ ] **Phase 3** — Monitoring dashboard (Streamlit + FastAPI)
-- [ ] **Phase 4** — RAG query layer (ChromaDB)
-- [ ] **Phase 5** — Polish and deploy (Hugging Face Spaces / Railway)
-
-## Running Tests
+### 4. Start the servers
 
 ```bash
-pytest tests/ -v
+# Backend
+uvicorn api.main:app --reload
+
+# Frontend
+cd app && npm run dev
 ```
 
-21 tests, all mocked (no API keys required for testing).
+Open `http://localhost:5173`.
+
+## Resume
+
+- Built a RAG pipeline over 41,000+ historical fire perimeters, NASA FIRMS satellite detections, and NWS forecast data using ChromaDB with all-MiniLM-L6-v2 embeddings and Claude Haiku for natural-language Q&A
+- Computed Fosberg FWI risk scores via SQLite queries with state bounding-box filtering and rendered wind-aligned 24h spread ellipses as choropleth overlays on a Mapbox GL globe with 3D terrain exaggeration

@@ -3,7 +3,42 @@ import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { idxToLabel } from './utils.js'
 
-export default function GlobeMap({ mapboxToken, monthIdx, confidenceFilter }) {
+// Color ramp for each weather variable: blue (safe) → lime → amber → orange → red (danger)
+function weatherColorExpr(variable) {
+  const val = ['coalesce', ['get', variable], 0]
+  if (variable === 'humidity_pct') {
+    // Inverted: low humidity = dry = dangerous
+    return ['interpolate', ['linear'], val,
+      0,   '#dc2626',
+      20,  '#f97316',
+      40,  '#fbbf24',
+      65,  '#a3e635',
+      100, '#60a5fa',
+    ]
+  }
+  const STOPS = {
+    fosberg_index:  [0, '#60a5fa', 8, '#a3e635', 20, '#fbbf24', 35, '#f97316', 50, '#dc2626'],
+    temp_f:         [40, '#60a5fa', 65, '#a3e635', 85, '#fbbf24', 95, '#f97316', 110, '#dc2626'],
+    wind_speed_mph: [0, '#60a5fa', 10, '#a3e635', 20, '#fbbf24', 35, '#f97316', 60, '#dc2626'],
+  }
+  const stops = STOPS[variable] || STOPS.fosberg_index
+  const args = []
+  for (let i = 0; i < stops.length; i += 2) args.push(stops[i], stops[i + 1])
+  return ['interpolate', ['linear'], val, ...args]
+}
+
+// Risk score colour ramp: green (low) → yellow → orange → red → dark red (high)
+const RISK_COLOR_EXPR = [
+  'interpolate', ['linear'], ['coalesce', ['get', 'risk_score'], 0],
+  0.0,  '#22c55e',
+  0.25, '#84cc16',
+  0.4,  '#eab308',
+  0.55, '#f97316',
+  0.7,  '#ef4444',
+  1.0,  '#b91c1c',
+]
+
+export default function GlobeMap({ mapboxToken, monthIdx, confidenceFilter, weatherOn, weatherVar, riskOn }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
 
@@ -188,6 +223,76 @@ export default function GlobeMap({ mapboxToken, monthIdx, confidenceFilter }) {
           map.on('mouseleave', 'historical-dots', () => { map.getCanvas().style.cursor = '' })
         })
         .catch(err => console.error('Failed to load perimeter_dots.json:', err))
+
+      // --- Fire risk prediction overlay ---
+      fetch('http://localhost:8000/risk/grid')
+        .then(r => r.json())
+        .then(data => {
+          if (cancelled) return
+          map.addSource('risk-grid', { type: 'geojson', data })
+          map.addLayer({
+            id: 'risk-layer',
+            type: 'circle',
+            source: 'risk-grid',
+            paint: {
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 28, 5, 50, 8, 85],
+              'circle-blur': 1,
+              'circle-color': RISK_COLOR_EXPR,
+              'circle-opacity': 0.38,
+              'circle-stroke-width': 0,
+            },
+            layout: { visibility: 'none' },
+          }, 'fires-layer')
+
+          map.on('click', 'risk-layer', e => {
+            activePopup?.remove()
+            const p = e.features[0].properties
+            const pct = Math.round((p.risk_score || 0) * 100)
+            const fwiPct = Math.round((p.fwi_score || 0) * 100)
+            const histPct = Math.round((p.hist_score || 0) * 100)
+            activePopup = new mapboxgl.Popup({ className: 'fire-popup' })
+              .setLngLat(e.lngLat)
+              .setHTML(`
+                <div class="popup-inner">
+                  <div class="popup-title">Risk Forecast</div>
+                  <div class="popup-row popup-risk"><span>Risk Index</span><span>${pct}%</span></div>
+                  <div class="popup-row"><span>Fire Weather (FWI)</span><span>${fwiPct}%</span></div>
+                  <div class="popup-row"><span>Historical Frequency</span><span>${histPct}%</span></div>
+                  <div class="popup-row"><span>Season</span><span>Month ${p.month}</span></div>
+                </div>
+              `)
+              .addTo(map)
+          })
+          map.on('mouseenter', 'risk-layer', () => { map.getCanvas().style.cursor = 'pointer' })
+          map.on('mouseleave', 'risk-layer', () => { map.getCanvas().style.cursor = '' })
+        })
+        .catch(err => console.error('Failed to load risk/grid:', err))
+
+      // --- Weather grid overlay ---
+      // Uses circle layer (not heatmap) so color is driven by actual value, not
+      // point density — eliminates the "gets redder on zoom" artifact.
+      fetch('http://localhost:8000/weather/grid')
+        .then(r => r.json())
+        .then(data => {
+          if (cancelled) return
+          map.addSource('weather-grid', { type: 'geojson', data })
+          map.addLayer({
+            id: 'weather-heatmap',
+            type: 'circle',
+            source: 'weather-grid',
+            paint: {
+              // Radius grows with zoom so adjacent 1°-grid circles overlap and blend
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 28, 5, 50, 8, 85],
+              // blur=1 means fully opaque at centre, transparent at edge radius
+              'circle-blur': 1,
+              'circle-color': weatherColorExpr('fosberg_index'),
+              'circle-opacity': 0.32,
+              'circle-stroke-width': 0,
+            },
+            layout: { visibility: 'none' },
+          }, 'fires-layer')
+        })
+        .catch(err => console.error('Failed to load weather/grid:', err))
     })
 
     return () => {
@@ -196,6 +301,27 @@ export default function GlobeMap({ mapboxToken, monthIdx, confidenceFilter }) {
       mapRef.current = null
     }
   }, [mapboxToken])
+
+  // Toggle risk overlay on/off
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !map.getLayer('risk-layer')) return
+    map.setLayoutProperty('risk-layer', 'visibility', riskOn ? 'visible' : 'none')
+  }, [riskOn])
+
+  // Toggle weather heatmap on/off
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !map.getLayer('weather-heatmap')) return
+    map.setLayoutProperty('weather-heatmap', 'visibility', weatherOn ? 'visible' : 'none')
+  }, [weatherOn])
+
+  // Switch weather variable (updates circle colour expression)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !map.getLayer('weather-heatmap')) return
+    map.setPaintProperty('weather-heatmap', 'circle-color', weatherColorExpr(weatherVar))
+  }, [weatherVar])
 
   // Apply confidence filter
   useEffect(() => {

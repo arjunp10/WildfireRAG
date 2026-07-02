@@ -14,6 +14,9 @@ export default function App() {
   const [playing, setPlaying] = useState(false)
   const [confidenceFilter, setConfidenceFilter] = useState('all')
   const [chatOpen, setChatOpen] = useState(false)
+  const [weatherOn, setWeatherOn] = useState(false)
+  const [weatherVar, setWeatherVar] = useState('fosberg_index')
+  const [riskOn, setRiskOn] = useState(false)
   const playRef = useRef(false)
 
   useEffect(() => {
@@ -46,10 +49,19 @@ export default function App() {
         mapboxToken={token}
         monthIdx={monthIdx}
         confidenceFilter={confidenceFilter}
+        weatherOn={weatherOn}
+        weatherVar={weatherVar}
+        riskOn={riskOn}
       />
       <Sidebar
         confidenceFilter={confidenceFilter}
         setConfidenceFilter={setConfidenceFilter}
+        weatherOn={weatherOn}
+        setWeatherOn={setWeatherOn}
+        weatherVar={weatherVar}
+        setWeatherVar={setWeatherVar}
+        riskOn={riskOn}
+        setRiskOn={setRiskOn}
       />
       <TimelineBar
         monthIdx={monthIdx}

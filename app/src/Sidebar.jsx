@@ -55,7 +55,14 @@ function LegendRow({ color, shape, label }) {
   )
 }
 
-export default function Sidebar({ confidenceFilter, setConfidenceFilter }) {
+const WEATHER_VARS = [
+  { val: 'fosberg_index',  label: 'Fosberg Index' },
+  { val: 'temp_f',         label: 'Temperature' },
+  { val: 'humidity_pct',   label: 'Humidity' },
+  { val: 'wind_speed_mph', label: 'Wind Speed' },
+]
+
+export default function Sidebar({ confidenceFilter, setConfidenceFilter, weatherOn, setWeatherOn, weatherVar, setWeatherVar, riskOn, setRiskOn }) {
   const [stats, setStats] = useState(null)
   const [articles, setArticles] = useState([])
   const [newsLoading, setNewsLoading] = useState(true)
@@ -150,6 +157,92 @@ export default function Sidebar({ confidenceFilter, setConfidenceFilter }) {
             )
           })}
         </div>
+      </div>
+
+      {/* Risk forecast overlay */}
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <div>
+            <Label>Risk Forecast</Label>
+          </div>
+          <button
+            onClick={() => setRiskOn(v => !v)}
+            style={{
+              padding: '3px 10px', borderRadius: 5, fontSize: 10, fontWeight: 700,
+              cursor: 'pointer', marginTop: -8,
+              border: `1px solid ${riskOn ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.07)'}`,
+              background: riskOn ? 'rgba(239,68,68,0.18)' : 'rgba(255,255,255,0.04)',
+              color: riskOn ? '#fca5a5' : '#475569',
+              transition: 'all 0.15s',
+            }}
+          >
+            {riskOn ? 'ON' : 'OFF'}
+          </button>
+        </div>
+        <div style={{ fontSize: 10, color: '#334155', lineHeight: 1.5 }}>
+          Where fires are most likely this month — based on current fire weather + 26 years of ignition history.
+        </div>
+        {riskOn && (
+          <div style={{ marginTop: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginBottom: 3 }}>
+              {['#22c55e','#84cc16','#eab308','#f97316','#ef4444','#b91c1c'].map((c, i) => (
+                <div key={i} style={{ flex: 1, height: 5, borderRadius: 2, background: c, opacity: 0.85 }} />
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 9, color: '#334155' }}>Low</span>
+              <span style={{ fontSize: 9, color: '#334155' }}>High</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Weather heatmap controls */}
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Label>Weather Heatmap</Label>
+          <button
+            onClick={() => setWeatherOn(v => !v)}
+            style={{
+              padding: '3px 10px', borderRadius: 5, fontSize: 10, fontWeight: 700,
+              cursor: 'pointer', marginTop: -8,
+              border: `1px solid ${weatherOn ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.07)'}`,
+              background: weatherOn ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)',
+              color: weatherOn ? '#a5b4fc' : '#475569',
+              transition: 'all 0.15s',
+            }}
+          >
+            {weatherOn ? 'ON' : 'OFF'}
+          </button>
+        </div>
+        {weatherOn && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {WEATHER_VARS.map(({ val, label }) => {
+              const active = weatherVar === val
+              return (
+                <button
+                  key={val}
+                  onClick={() => setWeatherVar(val)}
+                  style={{
+                    padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                    cursor: 'pointer', textAlign: 'left',
+                    border: `1px solid ${active ? 'rgba(99,102,241,0.45)' : 'rgba(255,255,255,0.06)'}`,
+                    background: active ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.03)',
+                    color: active ? '#c7d2fe' : '#475569',
+                    transition: 'all 0.15s',
+                    display: 'flex', alignItems: 'center', gap: 7,
+                  }}
+                >
+                  <span style={{
+                    width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                    background: active ? '#818cf8' : '#1e293b',
+                  }} />
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* News feed */}

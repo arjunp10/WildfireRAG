@@ -116,6 +116,100 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/weather/grid")
+def weather_grid(
+    min_lat: float | None = None,
+    max_lat: float | None = None,
+    min_lon: float | None = None,
+    max_lon: float | None = None,
+):
+    """
+    GeoJSON FeatureCollection of weather grid points with fire-weather properties.
+    Optional bbox params (min_lat, max_lat, min_lon, max_lon) to subset the grid.
+    Each feature has properties: temp_f, humidity_pct, wind_speed_mph, wind_dir_deg,
+    fosberg_index, fetched_at.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+
+        conditions = ["fetched_at IS NOT NULL"]
+        params: list = []
+
+        if min_lat is not None:
+            conditions.append("lat >= ?"); params.append(min_lat)
+        if max_lat is not None:
+            conditions.append("lat <= ?"); params.append(max_lat)
+        if min_lon is not None:
+            conditions.append("lon >= ?"); params.append(min_lon)
+        if max_lon is not None:
+            conditions.append("lon <= ?"); params.append(max_lon)
+
+        rows = conn.execute(
+            f"""
+            SELECT lat, lon, temp_f, humidity_pct, wind_speed_mph,
+                   wind_dir_deg, fosberg_index, fetched_at
+            FROM weather_grid
+            WHERE {" AND ".join(conditions)}
+            ORDER BY lat, lon
+            """,
+            params,
+        ).fetchall()
+        conn.close()
+    except sqlite3.OperationalError:
+        rows = []
+
+    features = [
+        {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [row["lon"], row["lat"]]},
+            "properties": {
+                "temp_f":         row["temp_f"],
+                "humidity_pct":   row["humidity_pct"],
+                "wind_speed_mph": row["wind_speed_mph"],
+                "wind_dir_deg":   row["wind_dir_deg"],
+                "fosberg_index":  row["fosberg_index"],
+                "fetched_at":     row["fetched_at"],
+            },
+        }
+        for row in rows
+    ]
+
+    return {"type": "FeatureCollection", "features": features}
+
+
+@app.get("/risk/grid")
+def risk_grid_endpoint():
+    """GeoJSON FeatureCollection of fire risk predictions per 1°×1° cell."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("""
+            SELECT lat, lon, fwi_score, hist_score, risk_score, month, computed_at
+            FROM risk_grid
+            ORDER BY lat, lon
+        """).fetchall()
+        conn.close()
+    except sqlite3.OperationalError:
+        rows = []
+
+    features = [
+        {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [row["lon"], row["lat"]]},
+            "properties": {
+                "fwi_score":   row["fwi_score"],
+                "hist_score":  row["hist_score"],
+                "risk_score":  row["risk_score"],
+                "month":       row["month"],
+                "computed_at": row["computed_at"],
+            },
+        }
+        for row in rows
+    ]
+    return {"type": "FeatureCollection", "features": features}
+
+
 @app.get("/news", response_model=list[ArticleOut])
 def get_news():
     try:

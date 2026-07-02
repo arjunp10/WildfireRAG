@@ -12,12 +12,24 @@ const token = import.meta.env.VITE_MAPBOX_TOKEN
 export default function App() {
   const [monthIdx, setMonthIdx] = useState(240)
   const [playing, setPlaying] = useState(false)
-  const [confidenceFilter, setConfidenceFilter] = useState('all')
   const [chatOpen, setChatOpen] = useState(false)
+  const playRef = useRef(false)
+
+  // Present layers
+  const [firmsOn, setFirmsOn] = useState(true)
+  const [confidenceFilter, setConfidenceFilter] = useState('all')
   const [weatherOn, setWeatherOn] = useState(false)
   const [weatherVar, setWeatherVar] = useState('fosberg_index')
+
+  // Forecast layer
   const [riskOn, setRiskOn] = useState(false)
-  const playRef = useRef(false)
+
+  // Present overlay
+  const [spreadOn, setSpreadOn] = useState(false)
+
+  // Historical layers
+  const [historicalDotsOn, setHistoricalDotsOn] = useState(true)
+  const [perimeterOn, setPerimeterOn] = useState(true)
 
   useEffect(() => {
     playRef.current = playing
@@ -49,11 +61,17 @@ export default function App() {
         mapboxToken={token}
         monthIdx={monthIdx}
         confidenceFilter={confidenceFilter}
+        firmsOn={firmsOn}
         weatherOn={weatherOn}
         weatherVar={weatherVar}
         riskOn={riskOn}
+        spreadOn={spreadOn}
+        historicalDotsOn={historicalDotsOn}
+        perimeterOn={perimeterOn}
       />
       <Sidebar
+        firmsOn={firmsOn}
+        setFirmsOn={setFirmsOn}
         confidenceFilter={confidenceFilter}
         setConfidenceFilter={setConfidenceFilter}
         weatherOn={weatherOn}
@@ -62,6 +80,12 @@ export default function App() {
         setWeatherVar={setWeatherVar}
         riskOn={riskOn}
         setRiskOn={setRiskOn}
+        spreadOn={spreadOn}
+        setSpreadOn={setSpreadOn}
+        historicalDotsOn={historicalDotsOn}
+        setHistoricalDotsOn={setHistoricalDotsOn}
+        perimeterOn={perimeterOn}
+        setPerimeterOn={setPerimeterOn}
       />
       <TimelineBar
         monthIdx={monthIdx}

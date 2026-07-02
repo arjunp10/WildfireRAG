@@ -4,6 +4,17 @@ import { idxToLabel, parseMonthInput } from './utils.js'
 const MIN_IDX = 0
 const MAX_IDX = 323
 
+const C = {
+  bg:      '#f6f8fa',
+  border:  '#d0d7de',
+  text1:   '#1f2328',
+  text2:   '#636c76',
+  text3:   '#6e7781',
+  fire:    '#bc4c00',
+}
+
+const font = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif'
+
 export default function TimelineBar({ monthIdx, setMonthIdx, playing, setPlaying, onChatToggle, chatOpen }) {
   const [inputVal, setInputVal] = useState(idxToLabel(monthIdx))
   const [inputErr, setInputErr] = useState(false)
@@ -24,16 +35,26 @@ export default function TimelineBar({ monthIdx, setMonthIdx, playing, setPlaying
     }
   }
 
+  const btn = (active, danger) => ({
+    height: 28, borderRadius: 6, cursor: 'pointer', fontFamily: font,
+    fontSize: 12, fontWeight: 500,
+    border: `1px solid ${danger && active ? '#fca5a5' : C.border}`,
+    background: danger && active ? '#fff5f5' : active ? '#ffffff' : '#ffffff',
+    color: danger && active ? '#d1242f' : C.text2,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'all 0.1s',
+    padding: '0 10px',
+  })
+
   return (
     <div style={{
-      position: 'fixed', bottom: 0, left: 280, right: 0,
-      height: 54,
-      background: 'rgba(8,10,18,0.97)',
-      backdropFilter: 'blur(20px)',
-      borderTop: '1px solid rgba(255,255,255,0.07)',
+      position: 'fixed', bottom: 0, left: 260, right: 0,
+      height: 48,
+      background: C.bg,
+      borderTop: `1px solid ${C.border}`,
       display: 'flex', alignItems: 'center',
-      padding: '0 20px', gap: 14,
-      fontFamily: 'system-ui, -apple-system, sans-serif',
+      padding: '0 16px', gap: 10,
+      fontFamily: font,
       zIndex: 1000,
     }}>
 
@@ -41,79 +62,44 @@ export default function TimelineBar({ monthIdx, setMonthIdx, playing, setPlaying
       <button
         onClick={() => setPlaying(p => !p)}
         title={playing ? 'Pause' : 'Play timeline'}
-        style={{
-          width: 30, height: 30, borderRadius: 7, flexShrink: 0,
-          background: playing ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.06)',
-          border: `1px solid ${playing ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}`,
-          color: playing ? '#fca5a5' : '#64748b',
-          cursor: 'pointer', fontSize: 11,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}
+        style={{ ...btn(playing, true), width: 28, padding: 0, flexShrink: 0 }}
       >
         {playing ? '⏸' : '▶'}
       </button>
 
       {/* Date input */}
-      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 0 }}>
-        <input
-          value={inputVal}
-          onChange={e => handleInput(e.target.value)}
-          onBlur={() => { if (inputErr) { setInputErr(false); setInputVal(idxToLabel(monthIdx)) } }}
-          placeholder="MM/YYYY"
-          style={{
-            width: 78, padding: '4px 8px',
-            background: inputErr ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.05)',
-            border: `1px solid ${inputErr ? 'rgba(239,68,68,0.45)' : 'rgba(255,255,255,0.1)'}`,
-            borderRadius: 6,
-            color: inputErr ? '#fca5a5' : '#e2e8f0',
-            fontSize: 13, fontWeight: 600,
-            outline: 'none', fontFamily: 'inherit',
-            textAlign: 'center',
-          }}
-        />
-      </div>
+      <input
+        value={inputVal}
+        onChange={e => handleInput(e.target.value)}
+        onBlur={() => { if (inputErr) { setInputErr(false); setInputVal(idxToLabel(monthIdx)) } }}
+        placeholder="MM/YYYY"
+        style={{
+          width: 72, height: 28, padding: '0 8px',
+          background: inputErr ? '#fff5f5' : '#ffffff',
+          border: `1px solid ${inputErr ? '#fca5a5' : C.border}`,
+          borderRadius: 6, flexShrink: 0,
+          color: inputErr ? '#d1242f' : C.text1,
+          fontSize: 12, fontWeight: 500,
+          outline: 'none', fontFamily: font,
+          textAlign: 'center',
+        }}
+      />
 
-      {/* Slider section */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontSize: 10, color: '#1e293b', whiteSpace: 'nowrap', flexShrink: 0 }}>
-          Jan 2000
-        </span>
-        <input
-          type="range"
-          min={MIN_IDX}
-          max={MAX_IDX}
-          value={monthIdx}
-          onChange={e => {
-            setPlaying(false)
-            setInputErr(false)
-            setMonthIdx(Number(e.target.value))
-          }}
-          style={{ flex: 1, accentColor: '#ef4444', cursor: 'pointer', height: 4 }}
-        />
-        <span style={{ fontSize: 10, color: '#1e293b', whiteSpace: 'nowrap', flexShrink: 0 }}>
-          Dec 2026
-        </span>
-      </div>
+      {/* Slider */}
+      <span style={{ fontSize: 11, color: C.text3, whiteSpace: 'nowrap', flexShrink: 0 }}>Jan 2000</span>
+      <input
+        type="range" min={MIN_IDX} max={MAX_IDX} value={monthIdx}
+        onChange={e => { setPlaying(false); setInputErr(false); setMonthIdx(Number(e.target.value)) }}
+        style={{ flex: 1, accentColor: C.fire, cursor: 'pointer', height: 4 }}
+      />
+      <span style={{ fontSize: 11, color: C.text3, whiteSpace: 'nowrap', flexShrink: 0 }}>Dec 2026</span>
 
       {/* Divider */}
-      <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.07)', flexShrink: 0 }} />
+      <div style={{ width: 1, height: 18, background: C.border, flexShrink: 0 }} />
 
-      {/* Ask AI button */}
-      <button
-        onClick={onChatToggle}
-        style={{
-          height: 30, padding: '0 14px', borderRadius: 7, flexShrink: 0,
-          background: chatOpen ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.06)',
-          border: `1px solid ${chatOpen ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}`,
-          color: chatOpen ? '#fca5a5' : '#64748b',
-          fontSize: 12, fontWeight: 600,
-          cursor: 'pointer', fontFamily: 'inherit',
-          display: 'flex', alignItems: 'center', gap: 6,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        <span style={{ fontSize: 13 }}>💬</span>
-        {chatOpen ? 'Close' : 'Ask AI'}
+      {/* Ask AI */}
+      <button onClick={onChatToggle} style={{ ...btn(chatOpen, false), flexShrink: 0, whiteSpace: 'nowrap' }}>
+        Ask AI
       </button>
     </div>
   )

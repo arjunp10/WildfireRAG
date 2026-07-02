@@ -38,7 +38,17 @@ const RISK_COLOR_EXPR = [
   1.0,  '#b91c1c',
 ]
 
-export default function GlobeMap({ mapboxToken, monthIdx, confidenceFilter, weatherOn, weatherVar, riskOn }) {
+// Opacity scales with risk so low-risk cells fade out, high-risk cells are bold
+const RISK_OPACITY_EXPR = [
+  'interpolate', ['linear'], ['coalesce', ['get', 'risk_score'], 0],
+  0.0,  0,
+  0.15, 0.1,
+  0.4,  0.35,
+  0.7,  0.55,
+  1.0,  0.7,
+]
+
+export default function GlobeMap({ mapboxToken, monthIdx, confidenceFilter, firmsOn, weatherOn, weatherVar, riskOn, spreadOn, historicalDotsOn, perimeterOn }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
 
@@ -47,7 +57,7 @@ export default function GlobeMap({ mapboxToken, monthIdx, confidenceFilter, weat
 
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
+      style: 'mapbox://styles/mapbox/outdoors-v12',
       projection: 'globe',
       center: [-98, 38],
       zoom: 3,
@@ -69,7 +79,13 @@ export default function GlobeMap({ mapboxToken, monthIdx, confidenceFilter, weat
         tileSize: 512,
       })
       map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 })
-      map.setFog({})
+      map.setFog({
+        color: 'rgb(220, 235, 255)',
+        'high-color': 'rgb(100, 150, 220)',
+        'horizon-blend': 0.06,
+        'space-color': 'rgb(10, 18, 40)',
+        'star-intensity': 0.5,
+      })
 
       // --- Active FIRMS fires ---
       fetch('/fires.json')
@@ -224,49 +240,111 @@ export default function GlobeMap({ mapboxToken, monthIdx, confidenceFilter, weat
         })
         .catch(err => console.error('Failed to load perimeter_dots.json:', err))
 
-      // --- Fire risk prediction overlay ---
+      // --- 7-day fire risk forecast overlay (choropleth grid squares) ---
       fetch('http://localhost:8000/risk/grid')
         .then(r => r.json())
         .then(data => {
           if (cancelled) return
           map.addSource('risk-grid', { type: 'geojson', data })
+
+          // Fill: coloured 1°×1° squares, opacity scales with risk level
           map.addLayer({
-            id: 'risk-layer',
-            type: 'circle',
+            id: 'risk-fill',
+            type: 'fill',
             source: 'risk-grid',
             paint: {
-              'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 28, 5, 50, 8, 85],
-              'circle-blur': 1,
-              'circle-color': RISK_COLOR_EXPR,
-              'circle-opacity': 0.38,
-              'circle-stroke-width': 0,
+              'fill-color':   RISK_COLOR_EXPR,
+              'fill-opacity': RISK_OPACITY_EXPR,
             },
             layout: { visibility: 'none' },
           }, 'fires-layer')
 
-          map.on('click', 'risk-layer', e => {
+          // Stroke: thin border on medium-to-high risk cells only
+          map.addLayer({
+            id: 'risk-stroke',
+            type: 'line',
+            source: 'risk-grid',
+            paint: {
+              'line-color': RISK_COLOR_EXPR,
+              'line-width': 0.5,
+              'line-opacity': ['interpolate', ['linear'], ['coalesce', ['get', 'risk_score'], 0],
+                0.3, 0, 0.5, 0.3, 1.0, 0.55],
+            },
+            layout: { visibility: 'none' },
+          }, 'fires-layer')
+
+          map.on('click', 'risk-fill', e => {
             activePopup?.remove()
             const p = e.features[0].properties
-            const pct = Math.round((p.risk_score || 0) * 100)
-            const fwiPct = Math.round((p.fwi_score || 0) * 100)
+            const pct  = Math.round((p.risk_score || 0) * 100)
+            const fwiPct  = Math.round((p.fwi_score || 0) * 100)
             const histPct = Math.round((p.hist_score || 0) * 100)
             activePopup = new mapboxgl.Popup({ className: 'fire-popup' })
               .setLngLat(e.lngLat)
               .setHTML(`
                 <div class="popup-inner">
-                  <div class="popup-title">Risk Forecast</div>
+                  <div class="popup-title">7-Day Risk Forecast</div>
                   <div class="popup-row popup-risk"><span>Risk Index</span><span>${pct}%</span></div>
-                  <div class="popup-row"><span>Fire Weather (FWI)</span><span>${fwiPct}%</span></div>
+                  <div class="popup-row"><span>Peak Fire Weather</span><span>${fwiPct}%</span></div>
                   <div class="popup-row"><span>Historical Frequency</span><span>${histPct}%</span></div>
-                  <div class="popup-row"><span>Season</span><span>Month ${p.month}</span></div>
                 </div>
               `)
               .addTo(map)
           })
-          map.on('mouseenter', 'risk-layer', () => { map.getCanvas().style.cursor = 'pointer' })
-          map.on('mouseleave', 'risk-layer', () => { map.getCanvas().style.cursor = '' })
+          map.on('mouseenter', 'risk-fill', () => { map.getCanvas().style.cursor = 'pointer' })
+          map.on('mouseleave', 'risk-fill', () => { map.getCanvas().style.cursor = '' })
         })
         .catch(err => console.error('Failed to load risk/grid:', err))
+
+      // --- Spread zone overlay ---
+      fetch('http://localhost:8000/spread/current')
+        .then(r => r.json())
+        .then(data => {
+          if (cancelled) return
+          map.addSource('spread-zones', { type: 'geojson', data })
+          map.addLayer({
+            id: 'spread-fill',
+            type: 'fill',
+            source: 'spread-zones',
+            paint: {
+              'fill-color': '#f43f5e',
+              'fill-opacity': 0.12,
+            },
+            layout: { visibility: 'none' },
+          }, 'fires-layer')
+          map.addLayer({
+            id: 'spread-stroke',
+            type: 'line',
+            source: 'spread-zones',
+            paint: {
+              'line-color': '#f43f5e',
+              'line-width': 1.5,
+              'line-opacity': 0.7,
+              'line-dasharray': [3, 2],
+            },
+            layout: { visibility: 'none' },
+          }, 'fires-layer')
+          map.on('click', 'spread-fill', e => {
+            activePopup?.remove()
+            const p = e.features[0].properties
+            const windDirLabel = ['N','NE','E','SE','S','SW','W','NW'][Math.round(p.wind_dir/45)%8]
+            activePopup = new mapboxgl.Popup({ className: 'fire-popup' })
+              .setLngLat(e.lngLat)
+              .setHTML(`
+                <div class="popup-inner">
+                  <div class="popup-title">24h Spread Projection</div>
+                  <div class="popup-row"><span>Detections</span><span>${p.detections}</span></div>
+                  <div class="popup-row"><span>Wind</span><span>${p.wind_mph} mph ${windDirLabel}</span></div>
+                  <div class="popup-row"><span>FWI</span><span>${p.fwi}</span></div>
+                  <div class="popup-row popup-risk"><span>Est. Spread</span><span>${p.spread_km} km</span></div>
+                </div>
+              `)
+              .addTo(map)
+          })
+          map.on('mouseenter', 'spread-fill',   () => { map.getCanvas().style.cursor = 'pointer' })
+          map.on('mouseleave', 'spread-fill',   () => { map.getCanvas().style.cursor = '' })
+        })
+        .catch(err => console.error('Failed to load spread/current:', err))
 
       // --- Weather grid overlay ---
       // Uses circle layer (not heatmap) so color is driven by actual value, not
@@ -302,11 +380,20 @@ export default function GlobeMap({ mapboxToken, monthIdx, confidenceFilter, weat
     }
   }, [mapboxToken])
 
-  // Toggle risk overlay on/off
+  // Toggle spread zones
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !map.getLayer('risk-layer')) return
-    map.setLayoutProperty('risk-layer', 'visibility', riskOn ? 'visible' : 'none')
+    const vis = spreadOn ? 'visible' : 'none'
+    if (map?.getLayer('spread-fill'))   map.setLayoutProperty('spread-fill',   'visibility', vis)
+    if (map?.getLayer('spread-stroke')) map.setLayoutProperty('spread-stroke', 'visibility', vis)
+  }, [spreadOn])
+
+  // Toggle risk overlay on/off (fill + stroke layers)
+  useEffect(() => {
+    const map = mapRef.current
+    const vis = riskOn ? 'visible' : 'none'
+    if (map?.getLayer('risk-fill'))   map.setLayoutProperty('risk-fill',   'visibility', vis)
+    if (map?.getLayer('risk-stroke')) map.setLayoutProperty('risk-stroke', 'visibility', vis)
   }, [riskOn])
 
   // Toggle weather heatmap on/off
@@ -323,6 +410,13 @@ export default function GlobeMap({ mapboxToken, monthIdx, confidenceFilter, weat
     map.setPaintProperty('weather-heatmap', 'circle-color', weatherColorExpr(weatherVar))
   }, [weatherVar])
 
+  // Toggle FIRMS layer
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map?.getLayer('fires-layer')) return
+    map.setLayoutProperty('fires-layer', 'visibility', firmsOn ? 'visible' : 'none')
+  }, [firmsOn])
+
   // Apply confidence filter
   useEffect(() => {
     const map = mapRef.current
@@ -330,6 +424,21 @@ export default function GlobeMap({ mapboxToken, monthIdx, confidenceFilter, weat
     map.setFilter('fires-layer',
       confidenceFilter === 'all' ? null : ['==', ['get', 'confidence'], confidenceFilter])
   }, [confidenceFilter])
+
+  // Toggle historical dots
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map?.getLayer('historical-dots')) return
+    map.setLayoutProperty('historical-dots', 'visibility', historicalDotsOn ? 'visible' : 'none')
+  }, [historicalDotsOn])
+
+  // Toggle perimeter outlines
+  useEffect(() => {
+    const map = mapRef.current
+    const vis = perimeterOn ? 'visible' : 'none'
+    if (map?.getLayer('fire-outlines-fill'))   map.setLayoutProperty('fire-outlines-fill',   'visibility', vis)
+    if (map?.getLayer('fire-outlines-stroke')) map.setLayoutProperty('fire-outlines-stroke', 'visibility', vis)
+  }, [perimeterOn])
 
   // Apply month filter
   useEffect(() => {

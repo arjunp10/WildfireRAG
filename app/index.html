@@ -3,92 +3,93 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FireRAG Globe</title>
+    <title>FireRAG</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { overflow: hidden; background: #080a12; }
+      body {
+        overflow: hidden;
+        background: #0d1117;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+      }
 
-      /* Mapbox popup overrides */
+      /* ── Mapbox popup ── */
       .mapboxgl-popup-content {
-        background: rgba(8,10,18,0.97) !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
-        border-radius: 10px !important;
+        background: #ffffff !important;
+        border: 1px solid #d0d7de !important;
+        border-radius: 6px !important;
         padding: 0 !important;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
-        backdrop-filter: blur(16px);
+        box-shadow: 0 8px 24px rgba(31,35,40,0.12) !important;
       }
-      .mapboxgl-popup-tip {
-        display: none !important;
-      }
+      .mapboxgl-popup-tip { display: none !important; }
       .mapboxgl-popup-close-button {
-        color: #334155 !important;
+        color: #6e7781 !important;
         font-size: 16px !important;
         padding: 6px 8px !important;
         line-height: 1 !important;
-        right: 2px !important;
-        top: 2px !important;
+        right: 0 !important; top: 0 !important;
       }
       .mapboxgl-popup-close-button:hover {
-        color: #e2e8f0 !important;
+        color: #1f2328 !important;
         background: none !important;
       }
+
       .popup-inner {
-        padding: 14px 16px 12px;
-        font-family: system-ui, -apple-system, sans-serif;
-        min-width: 200px;
+        padding: 12px 14px 11px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+        min-width: 180px;
       }
       .popup-title {
-        font-size: 13px;
-        font-weight: 700;
-        color: #e2e8f0;
-        margin-bottom: 10px;
-        padding-right: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #1f2328;
+        margin-bottom: 8px;
+        padding-right: 16px;
       }
       .popup-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 11.5px;
-        color: #475569;
-        margin-bottom: 5px;
+        font-size: 11px;
+        color: #636c76;
+        margin-bottom: 3px;
         gap: 12px;
       }
       .popup-row span:last-child {
-        color: #94a3b8;
-        font-weight: 600;
+        color: #1f2328;
+        font-weight: 500;
         text-align: right;
       }
-      .popup-risk span:last-child {
-        color: #f97316;
-      }
+      .popup-risk span:last-child { color: #bc4c00; }
 
-      /* Scrollbar styling */
+      /* ── Scrollbar ── */
       ::-webkit-scrollbar { width: 4px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
-      ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+      ::-webkit-scrollbar-thumb { background: #d0d7de; border-radius: 2px; }
+      ::-webkit-scrollbar-thumb:hover { background: #afb8c1; }
 
-      /* Mapbox navigation control */
+      /* ── Mapbox nav control ── */
       .mapboxgl-ctrl-group {
-        background: rgba(8,10,18,0.9) !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
-        box-shadow: none !important;
-        border-radius: 8px !important;
-        margin-bottom: 62px !important;
+        background: #ffffff !important;
+        border: 1px solid #d0d7de !important;
+        box-shadow: 0 1px 4px rgba(31,35,40,0.08) !important;
+        border-radius: 6px !important;
+        margin-bottom: 56px !important;
         margin-right: 12px !important;
       }
       .mapboxgl-ctrl-group button {
         background: transparent !important;
-        color: #64748b !important;
-        width: 30px !important;
-        height: 30px !important;
+        color: #636c76 !important;
+        width: 28px !important;
+        height: 28px !important;
       }
       .mapboxgl-ctrl-group button:hover {
-        background: rgba(255,255,255,0.06) !important;
+        background: #f6f8fa !important;
       }
-      .mapboxgl-ctrl-icon {
-        filter: invert(0.5) !important;
-      }
+      .mapboxgl-ctrl-icon { filter: invert(0.3) !important; }
+
+      /* ── Mapbox logo / attribution ── */
+      .mapboxgl-ctrl-logo { opacity: 0.5 !important; }
+      .mapboxgl-ctrl-attrib { font-size: 9px !important; opacity: 0.6 !important; }
     </style>
   </head>
   <body>

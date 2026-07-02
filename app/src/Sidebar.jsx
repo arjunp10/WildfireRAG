@@ -1,5 +1,23 @@
 import { useState, useEffect } from 'react'
 
+// GitHub design tokens
+const C = {
+  bg:        '#ffffff',
+  bgSubtle:  '#f6f8fa',
+  bgHover:   '#f3f4f6',
+  border:    '#d0d7de',
+  borderMuted: '#d8dee4',
+  text1:     '#1f2328',
+  text2:     '#636c76',
+  text3:     '#6e7781',
+  fire:      '#bc4c00',   // GitHub "severe" — perfect for fire
+  fireSubtle:'#fff1e5',
+  blue:      '#0969da',
+  blueSubtle:'#ddf4ff',
+  amber:     '#9a6700',
+  amberSubtle:'#fdf7e5',
+}
+
 function timeAgo(dateStr) {
   if (!dateStr) return ''
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -11,58 +29,177 @@ function timeAgo(dateStr) {
   return `${Math.floor(h / 24)}d ago`
 }
 
-function Label({ children }) {
+function Divider() {
+  return <div style={{ height: 1, background: C.border }} />
+}
+
+function SectionHeader({ children }) {
   return (
     <div style={{
-      fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase',
-      color: '#334155', marginBottom: 8,
+      fontSize: 12, fontWeight: 600, color: C.text2,
+      marginBottom: 8,
     }}>
       {children}
     </div>
   )
 }
 
-function StatCard({ value, label, color }) {
+// GitHub-style pill toggle
+function Toggle({ active, onToggle, color }) {
+  const bg = active ? (color || C.fire) : C.border
   return (
-    <div style={{
-      flex: 1, padding: '8px 10px',
-      background: 'rgba(255,255,255,0.03)',
-      border: '1px solid rgba(255,255,255,0.06)',
-      borderRadius: 8,
-    }}>
-      <div style={{ fontSize: 20, fontWeight: 700, color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-        {value}
+    <button
+      onClick={onToggle}
+      aria-checked={active}
+      role="switch"
+      style={{
+        position: 'relative', width: 28, height: 16,
+        borderRadius: 8, border: 'none', padding: 0,
+        background: bg, cursor: 'pointer', flexShrink: 0,
+        transition: 'background 0.15s',
+      }}
+    >
+      <div style={{
+        position: 'absolute',
+        top: 2, left: active ? 12 : 2,
+        width: 12, height: 12, borderRadius: '50%',
+        background: '#ffffff',
+        boxShadow: '0 1px 2px rgba(31,35,40,0.2)',
+        transition: 'left 0.15s',
+      }} />
+    </button>
+  )
+}
+
+// One layer row: label + toggle, optional children when active
+function LayerRow({ label, active, onToggle, color, children }) {
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '5px 0', borderRadius: 6,
+        }}
+      >
+        <span style={{
+          fontSize: 13, color: active ? C.text1 : C.text3,
+          fontWeight: active ? 500 : 400,
+          transition: 'color 0.12s',
+        }}>
+          {label}
+        </span>
+        <Toggle active={active} onToggle={onToggle} color={color} />
       </div>
-      <div style={{ fontSize: 10, color: '#334155', marginTop: 3 }}>{label}</div>
+      {active && children && (
+        <div style={{ paddingBottom: 6 }}>{children}</div>
+      )}
     </div>
   )
 }
 
-function LegendRow({ color, shape, label }) {
+// Small segmented button group (confidence filter)
+function SegGroup({ options, value, onChange }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#475569' }}>
-      <div style={{
-        width: shape === 'rect' ? 14 : 8,
-        height: 8,
-        borderRadius: shape === 'dot' ? '50%' : 2,
-        background: shape === 'dot' ? color : 'transparent',
-        border: shape === 'rect' ? `1px solid ${color}` : 'none',
-        flexShrink: 0,
-        opacity: shape === 'rect' ? 0.75 : 1,
-      }} />
-      <span>{label}</span>
+    <div style={{ display: 'flex', gap: 0, marginTop: 4 }}>
+      {options.map(({ val, label }, i) => {
+        const sel = value === val
+        return (
+          <button
+            key={val}
+            onClick={() => onChange(val)}
+            style={{
+              flex: 1, padding: '3px 0', fontSize: 11,
+              fontWeight: sel ? 600 : 400,
+              cursor: 'pointer', lineHeight: '20px',
+              background: sel ? C.text1 : C.bg,
+              color: sel ? '#ffffff' : C.text2,
+              border: `1px solid ${C.border}`,
+              borderLeft: i > 0 ? 'none' : `1px solid ${C.border}`,
+              borderRadius: i === 0 ? '6px 0 0 6px' : i === options.length - 1 ? '0 6px 6px 0' : '0',
+              transition: 'all 0.1s',
+            }}
+          >
+            {label}
+          </button>
+        )
+      })}
     </div>
   )
 }
+
+// Small radio-style option rows (weather variables)
+function RadioList({ options, value, onChange }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}>
+      {options.map(({ val, label }) => {
+        const sel = value === val
+        return (
+          <button
+            key={val}
+            onClick={() => onChange(val)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '4px 6px', borderRadius: 6,
+              border: 'none', background: sel ? C.bgSubtle : 'transparent',
+              cursor: 'pointer', textAlign: 'left', fontSize: 12,
+              color: sel ? C.text1 : C.text2,
+              fontWeight: sel ? 500 : 400,
+            }}
+          >
+            <div style={{
+              width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+              border: sel ? `2.5px solid ${C.blue}` : `1.5px solid ${C.border}`,
+              background: sel ? C.blue : 'transparent',
+              transition: 'all 0.1s',
+            }} />
+            {label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// Tiny color ramp
+function Ramp({ stops }) {
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ display: 'flex', gap: 1, borderRadius: 3, overflow: 'hidden' }}>
+        {stops.map((c, i) => (
+          <div key={i} style={{ flex: 1, height: 4, background: c }} />
+        ))}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+        <span style={{ fontSize: 10, color: C.text3 }}>Low</span>
+        <span style={{ fontSize: 10, color: C.text3 }}>High</span>
+      </div>
+    </div>
+  )
+}
+
+const CONFIDENCE_OPTS = [
+  { val: 'all', label: 'All' },
+  { val: 'h',   label: 'High' },
+  { val: 'n',   label: 'Nominal' },
+]
 
 const WEATHER_VARS = [
-  { val: 'fosberg_index',  label: 'Fosberg Index' },
+  { val: 'fosberg_index',  label: 'Fosberg FWI' },
   { val: 'temp_f',         label: 'Temperature' },
   { val: 'humidity_pct',   label: 'Humidity' },
   { val: 'wind_speed_mph', label: 'Wind Speed' },
 ]
 
-export default function Sidebar({ confidenceFilter, setConfidenceFilter, weatherOn, setWeatherOn, weatherVar, setWeatherVar, riskOn, setRiskOn }) {
+export default function Sidebar({
+  firmsOn, setFirmsOn,
+  confidenceFilter, setConfidenceFilter,
+  weatherOn, setWeatherOn, weatherVar, setWeatherVar,
+  spreadOn, setSpreadOn,
+  riskOn, setRiskOn,
+  historicalDotsOn, setHistoricalDotsOn,
+  perimeterOn, setPerimeterOn,
+}) {
   const [stats, setStats] = useState(null)
   const [articles, setArticles] = useState([])
   const [newsLoading, setNewsLoading] = useState(true)
@@ -70,201 +207,128 @@ export default function Sidebar({ confidenceFilter, setConfidenceFilter, weather
   useEffect(() => {
     fetch('http://localhost:8000/stats').then(r => r.json()).then(setStats).catch(() => {})
     fetch('http://localhost:8000/news')
-      .then(r => r.json())
-      .then(setArticles)
-      .catch(() => {})
+      .then(r => r.json()).then(setArticles).catch(() => {})
       .finally(() => setNewsLoading(false))
   }, [])
 
-  const FILTERS = [
-    { val: 'all', label: 'All' },
-    { val: 'h',   label: 'High' },
-    { val: 'n',   label: 'Nominal' },
-  ]
+  const font = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif'
 
   return (
     <div style={{
       position: 'fixed', left: 0, top: 0,
-      width: 280, height: '100vh',
-      background: 'rgba(8,10,18,0.97)',
-      backdropFilter: 'blur(20px)',
-      borderRight: '1px solid rgba(255,255,255,0.07)',
+      width: 260, height: '100vh',
+      background: C.bg,
+      borderRight: `1px solid ${C.border}`,
       display: 'flex', flexDirection: 'column',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-      color: '#e2e8f0',
+      fontFamily: font,
+      color: C.text1,
       zIndex: 1000,
       userSelect: 'none',
     }}>
 
       {/* Branding */}
-      <div style={{ padding: '20px 20px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 9,
-            background: 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 15, flexShrink: 0,
-            boxShadow: '0 2px 8px rgba(239,68,68,0.35)',
-          }}>🔥</div>
+      <div style={{ padding: '16px 16px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 18, lineHeight: 1 }}>🔥</span>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3, lineHeight: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: C.text1, lineHeight: 1.2 }}>
               FireRAG
             </div>
-            <div style={{ fontSize: 10, color: '#334155', marginTop: 2, letterSpacing: 0.2 }}>
+            <div style={{ fontSize: 11, color: C.text3, marginTop: 1 }}>
               Wildfire Intelligence
             </div>
           </div>
         </div>
       </div>
 
-      {/* Live stats */}
+      <Divider />
+
+      {/* Stats */}
       {stats && stats.total_fires > 0 && (
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-          <Label>Live Status</Label>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-            <StatCard value={stats.total_fires.toLocaleString()} label="Active detections" color="#ef4444" />
-            <StatCard value={stats.high_confidence.toLocaleString()} label="High confidence" color="#f97316" />
-          </div>
-          {stats.last_date && (
-            <div style={{ fontSize: 11, color: '#334155' }}>
-              Last updated: <span style={{ color: '#475569' }}>{stats.last_date}</span>
+        <>
+          <div style={{ padding: '10px 16px' }}>
+            <div style={{ fontSize: 12, color: C.text2 }}>
+              <span style={{ fontWeight: 600, color: C.fire }}>
+                {stats.total_fires.toLocaleString()}
+              </span>
+              {' '}active detections
+              {stats.last_date && (
+                <span style={{ color: C.text3 }}> · {stats.last_date}</span>
+              )}
             </div>
-          )}
-        </div>
+            {stats.high_confidence > 0 && (
+              <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>
+                {stats.high_confidence.toLocaleString()} high-confidence
+              </div>
+            )}
+          </div>
+          <Divider />
+        </>
       )}
 
-      {/* Confidence filter */}
-      <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        <Label>Filter Active Fires</Label>
-        <div style={{ display: 'flex', gap: 5 }}>
-          {FILTERS.map(({ val, label }) => {
-            const active = confidenceFilter === val
-            return (
-              <button
-                key={val}
-                onClick={() => setConfidenceFilter(val)}
-                style={{
-                  flex: 1, padding: '6px 0', borderRadius: 7,
-                  fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                  border: `1px solid ${active ? 'rgba(239,68,68,0.45)' : 'rgba(255,255,255,0.07)'}`,
-                  background: active ? 'rgba(239,68,68,0.18)' : 'rgba(255,255,255,0.04)',
-                  color: active ? '#fca5a5' : '#475569',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      {/* Scrollable layer controls + news */}
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
 
-      {/* Risk forecast overlay */}
-      <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <div>
-            <Label>Risk Forecast</Label>
-          </div>
-          <button
-            onClick={() => setRiskOn(v => !v)}
-            style={{
-              padding: '3px 10px', borderRadius: 5, fontSize: 10, fontWeight: 700,
-              cursor: 'pointer', marginTop: -8,
-              border: `1px solid ${riskOn ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.07)'}`,
-              background: riskOn ? 'rgba(239,68,68,0.18)' : 'rgba(255,255,255,0.04)',
-              color: riskOn ? '#fca5a5' : '#475569',
-              transition: 'all 0.15s',
-            }}
-          >
-            {riskOn ? 'ON' : 'OFF'}
-          </button>
-        </div>
-        <div style={{ fontSize: 10, color: '#334155', lineHeight: 1.5 }}>
-          Where fires are most likely this month — based on current fire weather + 26 years of ignition history.
-        </div>
-        {riskOn && (
-          <div style={{ marginTop: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginBottom: 3 }}>
-              {['#22c55e','#84cc16','#eab308','#f97316','#ef4444','#b91c1c'].map((c, i) => (
-                <div key={i} style={{ flex: 1, height: 5, borderRadius: 2, background: c, opacity: 0.85 }} />
-              ))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 9, color: '#334155' }}>Low</span>
-              <span style={{ fontSize: 9, color: '#334155' }}>High</span>
-            </div>
-          </div>
-        )}
-      </div>
+        {/* Present */}
+        <div style={{ padding: '12px 16px' }}>
+          <SectionHeader>Present</SectionHeader>
 
-      {/* Weather heatmap controls */}
-      <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <Label>Weather Heatmap</Label>
-          <button
-            onClick={() => setWeatherOn(v => !v)}
-            style={{
-              padding: '3px 10px', borderRadius: 5, fontSize: 10, fontWeight: 700,
-              cursor: 'pointer', marginTop: -8,
-              border: `1px solid ${weatherOn ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.07)'}`,
-              background: weatherOn ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)',
-              color: weatherOn ? '#a5b4fc' : '#475569',
-              transition: 'all 0.15s',
-            }}
-          >
-            {weatherOn ? 'ON' : 'OFF'}
-          </button>
-        </div>
-        {weatherOn && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {WEATHER_VARS.map(({ val, label }) => {
-              const active = weatherVar === val
-              return (
-                <button
-                  key={val}
-                  onClick={() => setWeatherVar(val)}
-                  style={{
-                    padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
-                    cursor: 'pointer', textAlign: 'left',
-                    border: `1px solid ${active ? 'rgba(99,102,241,0.45)' : 'rgba(255,255,255,0.06)'}`,
-                    background: active ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.03)',
-                    color: active ? '#c7d2fe' : '#475569',
-                    transition: 'all 0.15s',
-                    display: 'flex', alignItems: 'center', gap: 7,
-                  }}
-                >
-                  <span style={{
-                    width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                    background: active ? '#818cf8' : '#1e293b',
-                  }} />
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
+          <LayerRow label="Active Fires" active={firmsOn} onToggle={() => setFirmsOn(v => !v)} color={C.fire}>
+            <SegGroup options={CONFIDENCE_OPTS} value={confidenceFilter} onChange={setConfidenceFilter} />
+          </LayerRow>
 
-      {/* News feed */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '14px 20px 6px', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Label>Live News</Label>
-          {articles.length > 0 && (
-            <span style={{ fontSize: 10, color: '#1e293b', marginTop: -8 }}>{articles.length} articles</span>
-          )}
+          <LayerRow label="Weather Conditions" active={weatherOn} onToggle={() => setWeatherOn(v => !v)} color={C.blue}>
+            <RadioList options={WEATHER_VARS} value={weatherVar} onChange={setWeatherVar} />
+            <Ramp stops={['#60a5fa','#a3e635','#fbbf24','#f97316','#dc2626']} />
+          </LayerRow>
+
+          <LayerRow label="Spread Zones" active={spreadOn} onToggle={() => setSpreadOn(v => !v)} color="#cf222e">
+            <p style={{ fontSize: 11, color: C.text3, margin: '4px 0 0', lineHeight: 1.5 }}>
+              24h spread projection for active clusters.
+            </p>
+          </LayerRow>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 8px' }}>
-          {newsLoading && [0,1,2,3].map(i => (
-            <div key={i} style={{ padding: '10px 12px', marginBottom: 2 }}>
-              <div style={{ height: 9, width: '38%', background: 'rgba(255,255,255,0.05)', borderRadius: 3, marginBottom: 8 }} />
-              <div style={{ height: 12, background: 'rgba(255,255,255,0.05)', borderRadius: 3, marginBottom: 4 }} />
-              <div style={{ height: 12, width: '65%', background: 'rgba(255,255,255,0.05)', borderRadius: 3 }} />
+        <Divider />
+
+        {/* Forecast */}
+        <div style={{ padding: '12px 16px' }}>
+          <SectionHeader>7-Day Forecast</SectionHeader>
+          <LayerRow label="Risk Index" active={riskOn} onToggle={() => setRiskOn(v => !v)} color={C.amber}>
+            <Ramp stops={['#22c55e','#84cc16','#eab308','#f97316','#ef4444','#b91c1c']} />
+            <p style={{ fontSize: 11, color: C.text3, margin: '6px 0 0', lineHeight: 1.5 }}>
+              Peak 7-day FWI × 26-year ignition history.
+            </p>
+          </LayerRow>
+        </div>
+
+        <Divider />
+
+        {/* Historical */}
+        <div style={{ padding: '12px 16px' }}>
+          <SectionHeader>Historical · 2000–2026</SectionHeader>
+          <LayerRow label="Fire Locations" active={historicalDotsOn} onToggle={() => setHistoricalDotsOn(v => !v)} color={C.fire} />
+          <LayerRow label="Perimeters" active={perimeterOn} onToggle={() => setPerimeterOn(v => !v)} color={C.fire} />
+        </div>
+
+        <Divider />
+
+        {/* News */}
+        <div style={{ padding: '12px 16px 8px' }}>
+          <SectionHeader>Live News</SectionHeader>
+        </div>
+
+        <div>
+          {newsLoading && [0,1,2].map(i => (
+            <div key={i} style={{ padding: '8px 16px' }}>
+              <div style={{ height: 10, width: '35%', background: C.bgSubtle, borderRadius: 4, marginBottom: 6 }} />
+              <div style={{ height: 11, background: C.bgSubtle, borderRadius: 4, marginBottom: 4 }} />
+              <div style={{ height: 11, width: '75%', background: C.bgSubtle, borderRadius: 4 }} />
             </div>
           ))}
 
           {!newsLoading && articles.length === 0 && (
-            <div style={{ padding: '20px 12px', color: '#1e293b', fontSize: 12, textAlign: 'center' }}>
+            <div style={{ padding: '8px 16px', fontSize: 12, color: C.text3 }}>
               No articles yet.
             </div>
           )}
@@ -274,27 +338,25 @@ export default function Sidebar({ confidenceFilter, setConfidenceFilter, weather
               key={i}
               onClick={() => /^https?:\/\//.test(a.url) && window.open(a.url, '_blank', 'noopener,noreferrer')}
               style={{
-                padding: '9px 12px', borderRadius: 8, cursor: 'pointer',
-                marginBottom: 1, transition: 'background 0.12s',
+                padding: '8px 16px', cursor: 'pointer',
+                borderTop: i > 0 ? `1px solid ${C.borderMuted}` : 'none',
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+              onMouseEnter={e => e.currentTarget.style.background = C.bgSubtle}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
             >
-              <div style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
                 <span style={{
-                  fontSize: 9, fontWeight: 700, color: '#334155',
-                  background: 'rgba(255,255,255,0.05)',
-                  borderRadius: 3, padding: '2px 5px',
-                  textTransform: 'uppercase', letterSpacing: 0.4,
-                  whiteSpace: 'nowrap', maxWidth: 100,
-                  overflow: 'hidden', textOverflow: 'ellipsis',
+                  fontSize: 10, fontWeight: 500, color: C.text3,
+                  textTransform: 'uppercase', letterSpacing: 0.3,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80,
                 }}>
                   {a.source || 'Unknown'}
                 </span>
-                <span style={{ fontSize: 10, color: '#1e293b' }}>{timeAgo(a.published_at)}</span>
+                <span style={{ color: C.border, fontSize: 10 }}>·</span>
+                <span style={{ fontSize: 10, color: C.text3 }}>{timeAgo(a.published_at)}</span>
               </div>
               <div style={{
-                fontSize: 12, fontWeight: 600, lineHeight: 1.45, color: '#94a3b8',
+                fontSize: 12, color: C.text2, lineHeight: 1.45, fontWeight: 400,
                 overflow: 'hidden', display: '-webkit-box',
                 WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
               }}>
@@ -302,21 +364,9 @@ export default function Sidebar({ confidenceFilter, setConfidenceFilter, weather
               </div>
             </div>
           ))}
+          <div style={{ height: 16 }} />
         </div>
-      </div>
 
-      {/* Legend */}
-      <div style={{
-        padding: '12px 20px 16px',
-        borderTop: '1px solid rgba(255,255,255,0.07)',
-        display: 'flex', flexDirection: 'column', gap: 5, flexShrink: 0,
-      }}>
-        <Label>Legend</Label>
-        <LegendRow color="#22c55e" shape="dot" label="Active — low risk" />
-        <LegendRow color="#eab308" shape="dot" label="Active — medium risk" />
-        <LegendRow color="#ef4444" shape="dot" label="Active — high risk" />
-        <LegendRow color="#f97316" shape="dot" label="Confirmed (historical)" />
-        <LegendRow color="#f97316" shape="rect" label="Perimeter ≥ 50k acres" />
       </div>
     </div>
   )

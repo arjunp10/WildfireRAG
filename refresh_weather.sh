@@ -13,7 +13,13 @@ echo "=== $(date -u '+%Y-%m-%d %H:%M:%S UTC') ==="
 
 source .env 2>/dev/null || true
 
-echo "Fetching NWS weather grid..."
+echo "Fetching NWS current conditions grid..."
 python3 -m weather.fetch_grid --spacing 1.0 --workers 5
+
+echo "Fetching NWS 7-day forecast..."
+python3 -m weather.fetch_forecast --workers 5
+
+echo "Recomputing risk forecast grid..."
+python3 -m risk.compute_risk
 
 echo "Done."

@@ -75,8 +75,10 @@ def run(db_path: str = DB_PATH) -> int:
              len(rows), len(hist))
 
     # ── Weather grid ───────────────────────────────────────────────────────────
+    # Prefer 7-day peak forecast FWI; fall back to current FWI if not yet fetched.
     weather = conn.execute("""
-        SELECT lat, lon, fosberg_index
+        SELECT lat, lon,
+               COALESCE(forecast_fwi, fosberg_index) AS fwi
         FROM weather_grid
         WHERE fetched_at IS NOT NULL
     """).fetchall()
@@ -98,7 +100,7 @@ def run(db_path: str = DB_PATH) -> int:
         hist_count = sum(hist.get((cell_lat, cell_lon, m), 0) for m in window)
         hist_score = min(1.0, math.log(hist_count + 1) / log_denom)
 
-        fwi = w["fosberg_index"] or 0.0
+        fwi = w["fwi"] or 0.0
         fwi_score = min(1.0, fwi / FWI_CAP)
 
         risk_score = round(FWI_WEIGHT * fwi_score + HIST_WEIGHT * hist_score, 4)

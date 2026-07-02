@@ -86,7 +86,7 @@ All data lands in `firerag.db` (SQLite).
 - [x] **Phase 1** — Data collection pipeline (NASA FIRMS + NOAA + Kaggle)
 - [ ] **Phase 2** — Forecasting model (logistic regression / random forest)
 - [ ] **Phase 3** — Monitoring dashboard (Streamlit + FastAPI)
-- [ ] **Phase 4** — RAG query layer (LangChain + ChromaDB)
+- [ ] **Phase 4** — RAG query layer (ChromaDB)
 - [ ] **Phase 5** — Polish and deploy (Hugging Face Spaces / Railway)
 
 ## Running Tests

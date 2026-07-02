@@ -18,16 +18,6 @@ const C = {
   amberSubtle:'#fdf7e5',
 }
 
-function timeAgo(dateStr) {
-  if (!dateStr) return ''
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const min = Math.floor(diff / 60000)
-  if (min < 1) return 'just now'
-  if (min < 60) return `${min}m ago`
-  const h = Math.floor(min / 60)
-  if (h < 24) return `${h}h ago`
-  return `${Math.floor(h / 24)}d ago`
-}
 
 function Divider() {
   return <div style={{ height: 1, background: C.border }} />
@@ -201,14 +191,9 @@ export default function Sidebar({
   perimeterOn, setPerimeterOn,
 }) {
   const [stats, setStats] = useState(null)
-  const [articles, setArticles] = useState([])
-  const [newsLoading, setNewsLoading] = useState(true)
 
   useEffect(() => {
     fetch('http://localhost:8000/stats').then(r => r.json()).then(setStats).catch(() => {})
-    fetch('http://localhost:8000/news')
-      .then(r => r.json()).then(setArticles).catch(() => {})
-      .finally(() => setNewsLoading(false))
   }, [])
 
   const font = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif'
@@ -311,61 +296,7 @@ export default function Sidebar({
           <LayerRow label="Perimeters" active={perimeterOn} onToggle={() => setPerimeterOn(v => !v)} color={C.fire} />
         </div>
 
-        <Divider />
-
-        {/* News */}
-        <div style={{ padding: '12px 16px 8px' }}>
-          <SectionHeader>Live News</SectionHeader>
-        </div>
-
-        <div>
-          {newsLoading && [0,1,2].map(i => (
-            <div key={i} style={{ padding: '8px 16px' }}>
-              <div style={{ height: 10, width: '35%', background: C.bgSubtle, borderRadius: 4, marginBottom: 6 }} />
-              <div style={{ height: 11, background: C.bgSubtle, borderRadius: 4, marginBottom: 4 }} />
-              <div style={{ height: 11, width: '75%', background: C.bgSubtle, borderRadius: 4 }} />
-            </div>
-          ))}
-
-          {!newsLoading && articles.length === 0 && (
-            <div style={{ padding: '8px 16px', fontSize: 12, color: C.text3 }}>
-              No articles yet.
-            </div>
-          )}
-
-          {articles.map((a, i) => (
-            <div
-              key={i}
-              onClick={() => /^https?:\/\//.test(a.url) && window.open(a.url, '_blank', 'noopener,noreferrer')}
-              style={{
-                padding: '8px 16px', cursor: 'pointer',
-                borderTop: i > 0 ? `1px solid ${C.borderMuted}` : 'none',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = C.bgSubtle}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                <span style={{
-                  fontSize: 10, fontWeight: 500, color: C.text3,
-                  textTransform: 'uppercase', letterSpacing: 0.3,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80,
-                }}>
-                  {a.source || 'Unknown'}
-                </span>
-                <span style={{ color: C.border, fontSize: 10 }}>·</span>
-                <span style={{ fontSize: 10, color: C.text3 }}>{timeAgo(a.published_at)}</span>
-              </div>
-              <div style={{
-                fontSize: 12, color: C.text2, lineHeight: 1.45, fontWeight: 400,
-                overflow: 'hidden', display: '-webkit-box',
-                WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-              }}>
-                {a.title}
-              </div>
-            </div>
-          ))}
-          <div style={{ height: 16 }} />
-        </div>
+        <div style={{ height: 16 }} />
 
       </div>
     </div>
